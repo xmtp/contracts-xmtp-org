@@ -898,6 +898,11 @@
             ...simpleState
           } = data.state;
 
+          const fnBadge = explorer && data.address
+            ? `<a href="${explorer}/address/${data.address}#readProxyContract" target="_blank" rel="noopener" style="font-size:10px;color:var(--text-dim);font-family:var(--mono);margin-left:6px;opacity:0.6;text-decoration:none" title="Direct contract view call">(fn)</a>`
+            : `<span style="font-size:10px;color:var(--text-dim);font-family:var(--mono);margin-left:6px;opacity:0.6">(fn)</span>`;
+          const calcBadge = `<span style="font-size:10px;color:var(--text-dim);font-family:var(--mono);margin-left:6px;opacity:0.6" title="Derived from event history">(calc)</span>`;
+
           // Simple state fields
           const simpleEntries = Object.entries(simpleState).filter(
             ([, val]) => val !== null,
@@ -1040,12 +1045,12 @@
         <div style="padding:10px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-dim);background:rgba(88,166,255,0.04)">
           totalDeposits rises when payers deposit and falls as fees are charged and withdrawals complete &mdash; it can go negative. Excess is the contract&rsquo;s surplus above what payers can collectively withdraw, representing earned protocol fees ready to send to the distributor.
         </div>
-        <div class="detail-row"><div class="detail-key">Total Deposits</div><div class="detail-val">${fmtToken(totalDeposits, tdColor)}<span style="color:var(--text-dim);font-size:11px;margin-left:8px">net of settlements &amp; withdrawals, signed</span></div></div>
-        <div class="detail-row"><div class="detail-key">Total Debt</div><div class="detail-val">${fmtToken(totalDebt, totalDebt && BigInt(totalDebt) > 0n ? "var(--amber)" : null)}<span style="color:var(--text-dim);font-size:11px;margin-left:8px">sum of negative balances</span></div></div>
-        <div class="detail-row"><div class="detail-key">Total Withdrawable</div><div class="detail-val">${fmtToken(totalWithdrawable)}<span style="color:var(--text-dim);font-size:11px;margin-left:8px">= totalDeposits + totalDebt</span></div></div>
-        <div class="detail-row"><div class="detail-key">Excess</div><div class="detail-val">${fmtToken(excess, excess && BigInt(excess) > 0n ? "var(--green)" : null)}<span style="color:var(--text-dim);font-size:11px;margin-left:8px">earned fees available to sweep</span></div></div>
-        <div class="detail-row"><div class="detail-key">Minimum Deposit</div><div class="detail-val">${fmtToken(minimumDeposit)}</div></div>
-        <div class="detail-row"><div class="detail-key">Withdraw Lock Period</div><div class="detail-val">${lockPeriodDisplay}</div></div>
+        <div class="detail-row"><div class="detail-key">Total Deposits</div><div class="detail-val">${fmtToken(totalDeposits, tdColor)}${fnBadge}<span style="color:var(--text-dim);font-size:11px;margin-left:8px">net of settlements &amp; withdrawals, signed</span></div></div>
+        <div class="detail-row"><div class="detail-key">Total Debt</div><div class="detail-val">${fmtToken(totalDebt, totalDebt && BigInt(totalDebt) > 0n ? "var(--amber)" : null)}${fnBadge}<span style="color:var(--text-dim);font-size:11px;margin-left:8px">sum of negative balances</span></div></div>
+        <div class="detail-row"><div class="detail-key">Total Withdrawable</div><div class="detail-val">${fmtToken(totalWithdrawable)}${fnBadge}<span style="color:var(--text-dim);font-size:11px;margin-left:8px">= totalDeposits + totalDebt</span></div></div>
+        <div class="detail-row"><div class="detail-key">Excess</div><div class="detail-val">${fmtToken(excess, excess && BigInt(excess) > 0n ? "var(--green)" : null)}${fnBadge}<span style="color:var(--text-dim);font-size:11px;margin-left:8px">earned fees available to sweep</span></div></div>
+        <div class="detail-row"><div class="detail-key">Minimum Deposit</div><div class="detail-val">${fmtToken(minimumDeposit)}${fnBadge}</div></div>
+        <div class="detail-row"><div class="detail-key">Withdraw Lock Period</div><div class="detail-val">${lockPeriodDisplay}${fnBadge}</div></div>
       </div></div>`;
           }
 
@@ -1068,11 +1073,11 @@
         <table style="margin:0">
           <thead><tr>
             <th>Payer</th>
-            <th>Balance</th>
-            <th>Total Deposited</th>
-            <th>Total Settled</th>
-            <th>Pending Withdrawal</th>
-            <th>Withdrawable At</th>
+            <th>Balance ${fnBadge}</th>
+            <th>Total Deposited ${calcBadge}</th>
+            <th>Total Settled ${calcBadge}</th>
+            <th>Pending Withdrawal ${fnBadge}</th>
+            <th>Withdrawable At ${fnBadge}</th>
           </tr></thead><tbody>`;
 
             for (const p of sortedPayers) {
