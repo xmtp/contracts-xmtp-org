@@ -1051,10 +1051,10 @@
             <div><span style="font-family:var(--mono);font-size:11px;color:var(--text)">(calc)</span> Value derived by summing on-chain event history.</div>
           </div>
         </div>
-        <div class="detail-row"><div class="detail-key">Total Deposits</div><div class="detail-val">${fmtToken(totalDeposits, tdColor)}${fnBadge}<span style="color:var(--text-dim);font-size:11px;margin-left:8px">net of settlements &amp; withdrawals, signed</span></div></div>
-        <div class="detail-row"><div class="detail-key">Total Debt</div><div class="detail-val">${fmtToken(totalDebt, totalDebt && BigInt(totalDebt) > 0n ? "var(--amber)" : null)}${fnBadge}<span style="color:var(--text-dim);font-size:11px;margin-left:8px">sum of negative balances</span></div></div>
-        <div class="detail-row"><div class="detail-key">Total Withdrawable</div><div class="detail-val">${fmtToken(totalWithdrawable)}${fnBadge}<span style="color:var(--text-dim);font-size:11px;margin-left:8px">= totalDeposits + totalDebt</span></div></div>
-        <div class="detail-row"><div class="detail-key">Excess</div><div class="detail-val">${fmtToken(excess, excess && BigInt(excess) > 0n ? "var(--green)" : null)}${fnBadge}<span style="color:var(--text-dim);font-size:11px;margin-left:8px">earned fees available to sweep</span></div></div>
+        <div class="detail-row"><div class="detail-key">Total Deposits</div><div class="detail-val">${fmtToken(totalDeposits, tdColor)}${fnBadge}</div></div>
+        <div class="detail-row"><div class="detail-key">Total Debt</div><div class="detail-val">${fmtToken(totalDebt, totalDebt && BigInt(totalDebt) > 0n ? "var(--amber)" : null)}${fnBadge}</div></div>
+        <div class="detail-row"><div class="detail-key">Total Withdrawable</div><div class="detail-val">${fmtToken(totalWithdrawable)}${fnBadge}</div></div>
+        <div class="detail-row"><div class="detail-key">Excess</div><div class="detail-val">${fmtToken(excess, excess && BigInt(excess) > 0n ? "var(--green)" : null)}${fnBadge}</div></div>
         <div class="detail-row"><div class="detail-key">Minimum Deposit</div><div class="detail-val">${fmtToken(minimumDeposit)}${fnBadge}</div></div>
         <div class="detail-row"><div class="detail-key">Withdraw Lock Period</div><div class="detail-val">${lockPeriodDisplay}${fnBadge}</div></div>
       </div></div>`;
