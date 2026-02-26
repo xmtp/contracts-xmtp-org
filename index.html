@@ -1040,6 +1040,17 @@
             const tdColor = tdRaw !== null ? (tdRaw < 0n ? "var(--red)" : "var(--green)") : null;
 
             html += `<div class="detail-card">
+      <div class="detail-card-header">Key</div>
+      <div class="detail-card-body">
+        <div style="padding:12px 18px;font-size:12px;color:var(--text-dim);display:flex;flex-direction:column;gap:3px">
+          <div><span style="color:var(--green);font-family:var(--mono);font-size:11px">green</span> / <span style="color:var(--red);font-family:var(--mono);font-size:11px">red</span> Signed integers</div>
+          <div><span style="font-family:var(--mono);font-size:11px;color:var(--text)">white</span> Unsigned integers</div>
+          <div><span style="font-family:var(--mono);font-size:11px;color:var(--text)">(fn)</span> Value read directly from a contract view function. Click to verify on the block explorer.</div>
+          <div><span style="font-family:var(--mono);font-size:11px;color:var(--text)">(calc)</span> Value derived by summing on-chain event history.</div>
+        </div>
+      </div></div>`;
+
+            html += `<div class="detail-card">
       <div class="detail-card-header">Registry Overview</div>
       <div class="detail-card-body">
         <div style="padding:12px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-dim);background:rgba(88,166,255,0.04);display:flex;flex-direction:column;gap:6px">
@@ -1047,12 +1058,6 @@
           <div><strong style="color:var(--text)">totalDebt</strong>: Formula is &ldquo;<span style="font-family:var(--mono)">+ settlements &minus; deposits &minus; cancelled withdrawals</span>&rdquo;. Unsigned integer. It represents how much payers collectively owe the network for services they consumed but haven't paid for.</div>
           <div><strong style="color:var(--text)">totalWithdrawable</strong>: Formula is &ldquo;<span style="font-family:var(--mono)">totalDeposits + totalDebt</span>&rdquo;. The total amount all solvent payers could collectively withdraw right now. The contract token balance must always be at least this value.</div>
           <div><strong style="color:var(--text)">Excess</strong>: Formula is &ldquo;<span style="font-family:var(--mono)">contract token balance &minus; totalWithdrawable</span>&rdquo;. Earned protocol fees ready to send to the distributor.</div>
-          <div style="margin-top:2px;padding-top:8px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:3px">
-            <div><span style="color:var(--green);font-family:var(--mono);font-size:11px">green</span> / <span style="color:var(--red);font-family:var(--mono);font-size:11px">red</span> Signed integers</div>
-            <div><span style="font-family:var(--mono);font-size:11px;color:var(--text)">white</span> Unsigned integers</div>
-            <div><span style="font-family:var(--mono);font-size:11px;color:var(--text)">(fn)</span> Value read directly from a contract view function. Click to verify on the block explorer.</div>
-            <div><span style="font-family:var(--mono);font-size:11px;color:var(--text)">(calc)</span> Value derived by summing on-chain event history.</div>
-          </div>
         </div>
         <div class="detail-row"><div class="detail-key">Total Deposits</div><div class="detail-val">${fmtToken(totalDeposits, tdColor)}${fnBadge}</div></div>
         <div class="detail-row"><div class="detail-key">Total Debt</div><div class="detail-val">${fmtToken(totalDebt)}${fnBadge}</div></div>
@@ -1078,7 +1083,15 @@
             });
             html += `<div class="detail-card">
       <div class="detail-card-header">Payers <span style="color:var(--text-dim);font-weight:400;font-size:12px">${payers.length} payer${payers.length !== 1 ? "s" : ""}</span></div>
-      <div class="detail-card-body"><div class="table-wrapper">
+      <div class="detail-card-body">
+        <div style="padding:12px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-dim);background:rgba(88,166,255,0.04);display:flex;flex-direction:column;gap:6px">
+          <div><strong style="color:var(--text)">Balance</strong>: <span style="font-family:var(--mono)">getBalance(payer)</span>. Signed int104. Current net position: deposits minus settled fees minus withdrawals. Green if healthy, red if in debt.</div>
+          <div><strong style="color:var(--text)">Total Deposited</strong>: Sum of all <span style="font-family:var(--mono)">Deposit</span> events for this payer.</div>
+          <div><strong style="color:var(--text)">Total Settled</strong>: Sum of all <span style="font-family:var(--mono)">UsageSettled</span> events charged to this payer. The fees the protocol has earned from them.</div>
+          <div><strong style="color:var(--text)">Pending Withdrawal</strong>: Amount locked for withdrawal from <span style="font-family:var(--mono)">getPendingWithdrawal(payer)</span>. Zero if no withdrawal is in progress.</div>
+          <div><strong style="color:var(--text)">Withdrawable At</strong>: Timestamp when the pending withdrawal can be finalized.</div>
+        </div>
+        <div class="table-wrapper">
         <table style="margin:0">
           <thead><tr>
             <th>Payer</th>
@@ -1113,7 +1126,7 @@
           </tr>`;
             }
 
-            html += `</tbody></table></div></div></div>`;
+            html += `</tbody></table></div></div></div></div>`;
           } else if (payers !== undefined && payers !== null && payers.length === 0) {
             html += `<div class="detail-card">
       <div class="detail-card-header">Payers</div>
