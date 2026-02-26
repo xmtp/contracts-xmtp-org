@@ -1,4 +1,4 @@
-# XMTP Contract Admin
+# XMTP Contract Status Dashboard
 
 Read-only dashboard for monitoring XMTP smart contracts across all environments.
 
