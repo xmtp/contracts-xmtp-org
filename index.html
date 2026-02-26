@@ -1048,7 +1048,8 @@
           <div><strong style="color:var(--text)">totalWithdrawable</strong>: Formula is &ldquo;<span style="font-family:var(--mono)">totalDeposits + totalDebt</span>&rdquo;. The total amount all solvent payers could collectively withdraw right now. The contract token balance must always be at least this value.</div>
           <div><strong style="color:var(--text)">Excess</strong>: Formula is &ldquo;<span style="font-family:var(--mono)">contract token balance &minus; totalWithdrawable</span>&rdquo;. Earned protocol fees ready to send to the distributor.</div>
           <div style="margin-top:2px;padding-top:8px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:3px">
-            <div><span style="color:var(--green);font-family:var(--mono);font-size:11px">green</span> / <span style="color:var(--red);font-family:var(--mono);font-size:11px">red</span> Signed integers (e.g. int104): green when &ge; 0, red when negative. Unsigned integers are shown in white.</div>
+            <div><span style="color:var(--green);font-family:var(--mono);font-size:11px">green</span> / <span style="color:var(--red);font-family:var(--mono);font-size:11px">red</span> Signed integers</div>
+            <div><span style="font-family:var(--mono);font-size:11px;color:var(--text)">white</span> Unsigned integers</div>
             <div><span style="font-family:var(--mono);font-size:11px;color:var(--text)">(fn)</span> Value read directly from a contract view function. Click to verify on the block explorer.</div>
             <div><span style="font-family:var(--mono);font-size:11px;color:var(--text)">(calc)</span> Value derived by summing on-chain event history.</div>
           </div>
