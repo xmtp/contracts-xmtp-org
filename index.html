@@ -1037,7 +1037,7 @@
               : '<span style="color:var(--text-dim)">-</span>';
 
             const tdRaw = totalDeposits !== null && totalDeposits !== undefined ? BigInt(totalDeposits) : null;
-            const tdColor = tdRaw !== null && tdRaw < 0n ? "var(--red)" : null;
+            const tdColor = tdRaw !== null ? (tdRaw < 0n ? "var(--red)" : "var(--green)") : null;
 
             html += `<div class="detail-card">
       <div class="detail-card-header">Registry Overview</div>
@@ -1048,14 +1048,15 @@
           <div><strong style="color:var(--text)">totalWithdrawable</strong>: Formula is &ldquo;<span style="font-family:var(--mono)">totalDeposits + totalDebt</span>&rdquo;. The total amount all solvent payers could collectively withdraw right now. The contract token balance must always be at least this value.</div>
           <div><strong style="color:var(--text)">Excess</strong>: Formula is &ldquo;<span style="font-family:var(--mono)">contract token balance &minus; totalWithdrawable</span>&rdquo;. Earned protocol fees ready to send to the distributor.</div>
           <div style="margin-top:2px;padding-top:8px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:3px">
+            <div><span style="color:var(--green);font-family:var(--mono);font-size:11px">green</span> / <span style="color:var(--red);font-family:var(--mono);font-size:11px">red</span> Signed integers (e.g. int104): green when &ge; 0, red when negative. Unsigned integers are shown in white.</div>
             <div><span style="font-family:var(--mono);font-size:11px;color:var(--text)">(fn)</span> Value read directly from a contract view function. Click to verify on the block explorer.</div>
             <div><span style="font-family:var(--mono);font-size:11px;color:var(--text)">(calc)</span> Value derived by summing on-chain event history.</div>
           </div>
         </div>
         <div class="detail-row"><div class="detail-key">Total Deposits</div><div class="detail-val">${fmtToken(totalDeposits, tdColor)}${fnBadge}</div></div>
-        <div class="detail-row"><div class="detail-key">Total Debt</div><div class="detail-val">${fmtToken(totalDebt, totalDebt && BigInt(totalDebt) > 0n ? "var(--amber)" : null)}${fnBadge}</div></div>
+        <div class="detail-row"><div class="detail-key">Total Debt</div><div class="detail-val">${fmtToken(totalDebt)}${fnBadge}</div></div>
         <div class="detail-row"><div class="detail-key">Total Withdrawable</div><div class="detail-val">${fmtToken(totalWithdrawable)}${fnBadge}</div></div>
-        <div class="detail-row"><div class="detail-key">Excess</div><div class="detail-val">${fmtToken(excess, excess && BigInt(excess) > 0n ? "var(--green)" : null)}${fnBadge}</div></div>
+        <div class="detail-row"><div class="detail-key">Excess</div><div class="detail-val">${fmtToken(excess)}${fnBadge}</div></div>
         <div class="detail-row"><div class="detail-key">Minimum Deposit</div><div class="detail-val">${fmtToken(minimumDeposit)}${fnBadge}</div></div>
         <div class="detail-row"><div class="detail-key">Withdraw Lock Period</div><div class="detail-val">${lockPeriodDisplay}${fnBadge}</div></div>
       </div></div>`;
@@ -1092,7 +1093,7 @@
               const isDebt = bal !== null && bal < 0n;
               const balStr = formatTokenAmount(p.balance, payerDecimals);
               const balDisplay = balStr !== null
-                ? `<span style="font-family:var(--mono);font-size:12px;color:${isDebt ? "var(--red)" : "inherit"}">${escapeHtml(balStr)}${sym}</span>`
+                ? `<span style="font-family:var(--mono);font-size:12px;color:${isDebt ? "var(--red)" : "var(--green)"}">${escapeHtml(balStr)}${sym}</span>`
                 : '<span style="color:var(--text-dim)">-</span>';
 
               const hasPending = p.pendingWithdrawal && BigInt(p.pendingWithdrawal) > 0n;
