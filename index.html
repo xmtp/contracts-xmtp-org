@@ -1038,7 +1038,7 @@
       <div class="detail-card-header">Registry Overview</div>
       <div class="detail-card-body">
         <div style="padding:10px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-dim);background:rgba(88,166,255,0.04)">
-          Net deposits minus settlements and finalized withdrawals. Excess = contract balance &minus; totalWithdrawable, available to sweep to the fee distributor.
+          totalDeposits rises when payers deposit and falls as fees are charged and withdrawals complete &mdash; it can go negative. Excess is the contract&rsquo;s surplus above what payers can collectively withdraw, representing earned protocol fees ready to send to the distributor.
         </div>
         <div class="detail-row"><div class="detail-key">Total Deposits</div><div class="detail-val">${fmtToken(totalDeposits, tdColor)}<span style="color:var(--text-dim);font-size:11px;margin-left:8px">net of settlements &amp; withdrawals, signed</span></div></div>
         <div class="detail-row"><div class="detail-key">Total Debt</div><div class="detail-val">${fmtToken(totalDebt, totalDebt && BigInt(totalDebt) > 0n ? "var(--amber)" : null)}<span style="color:var(--text-dim);font-size:11px;margin-left:8px">sum of negative balances</span></div></div>
