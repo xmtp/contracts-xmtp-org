@@ -1086,7 +1086,7 @@
       <div class="detail-card-body">
         <div style="padding:12px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-dim);background:rgba(88,166,255,0.04);display:flex;flex-direction:column;gap:6px">
           <div><strong style="color:var(--text)">Balance</strong>: <span style="font-family:var(--mono)">getBalance(payer)</span>. Current net position: deposits minus settled fees minus withdrawals. Green if healthy, red if in debt.</div>
-          <div><strong style="color:var(--text)">Total Deposited</strong>: Sum of all <span style="font-family:var(--mono)">Deposit</span> events for this payer.</div>
+          <div><strong style="color:var(--text)">Total Deposited</strong>: Sum of all <span style="font-family:var(--mono)">Deposit</span> events for this payer. This name is not misleading, it is the sum of all deposits.</div>
           <div><strong style="color:var(--text)">Total Settled</strong>: Sum of all <span style="font-family:var(--mono)">UsageSettled</span> events charged to this payer. The fees the protocol has earned from them.</div>
           <div><strong style="color:var(--text)">Pending Withdrawal</strong>: Amount locked for withdrawal from <span style="font-family:var(--mono)">getPendingWithdrawal(payer)</span>. Zero if no withdrawal is in progress.</div>
           <div><strong style="color:var(--text)">Withdrawable At</strong>: Timestamp when the pending withdrawal can be finalized.</div>
