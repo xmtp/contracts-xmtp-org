@@ -937,7 +937,8 @@
           <thead><tr>
             <th>Originator</th>
             <th>Report #</th>
-            <th>Sequence Range</th>
+            <th>Seq From</th>
+            <th>Seq To</th>
             <th>End Time</th>
             <th>Settled</th>
             <th>Fees Settled</th>
@@ -959,7 +960,8 @@
               html += `<tr>
             <td style="font-family:var(--mono);font-size:13px">${escapeHtml(r.originatorNodeId)}</td>
             <td style="font-family:var(--mono);font-size:13px">${escapeHtml(r.reportIndex)}</td>
-            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(r.startSequenceId)} &rarr; ${escapeHtml(r.endSequenceId)}</td>
+            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(r.startSequenceId)}</td>
+            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(r.endSequenceId)}</td>
             <td style="font-size:12px">${endTime}</td>
             <td style="text-align:center">${settledBadge}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml(r.feesSettled || "0")}</td>
