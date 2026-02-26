@@ -869,6 +869,7 @@
             canonicalNodes,
             knownParameters,
             lastPayerReports,
+            payers,
             ...simpleState
           } = data.state;
 
@@ -979,6 +980,57 @@
       <div class="detail-card-header">Last Payer Reports</div>
       <div class="detail-card-body">
         <div style="padding:14px 18px;color:var(--text-dim);font-size:13px">No payer reports submitted yet.</div>
+      </div></div>`;
+          }
+
+          // Payers table
+          if (payers && payers.length > 0) {
+            const sortedPayers = [...payers].sort((a, b) => {
+              const ba = BigInt(a.balance ?? "0");
+              const bb = BigInt(b.balance ?? "0");
+              return ba < bb ? -1 : ba > bb ? 1 : 0;
+            });
+            html += `<div class="detail-card">
+      <div class="detail-card-header">Payers <span style="color:var(--text-dim);font-weight:400;font-size:12px">${payers.length} payer${payers.length !== 1 ? "s" : ""}</span></div>
+      <div class="detail-card-body"><div class="table-wrapper">
+        <table style="margin:0">
+          <thead><tr>
+            <th>Payer</th>
+            <th>Balance</th>
+            <th>Pending Withdrawal</th>
+            <th>Withdrawable At</th>
+          </tr></thead><tbody>`;
+
+            for (const p of sortedPayers) {
+              const bal = p.balance !== null ? BigInt(p.balance) : null;
+              const isDebt = bal !== null && bal < 0n;
+              const balDisplay = bal !== null
+                ? `<span style="font-family:var(--mono);font-size:12px;color:${isDebt ? "var(--red)" : "inherit"}">${escapeHtml(bal.toString())}</span>`
+                : '<span style="color:var(--text-dim)">-</span>';
+
+              const hasPending = p.pendingWithdrawal && BigInt(p.pendingWithdrawal) > 0n;
+              const pendingDisplay = hasPending
+                ? `<span style="font-family:var(--mono);font-size:12px">${escapeHtml(p.pendingWithdrawal)}</span>`
+                : '<span style="color:var(--text-dim)">-</span>';
+
+              const withdrawableDisplay = hasPending && p.withdrawableTimestamp
+                ? `<span style="font-size:12px">${new Date(p.withdrawableTimestamp * 1000).toISOString().replace("T", " ").replace(".000Z", " UTC")}</span>`
+                : '<span style="color:var(--text-dim)">-</span>';
+
+              html += `<tr>
+            <td>${renderAddress(p.address, explorer)}</td>
+            <td>${balDisplay}</td>
+            <td>${pendingDisplay}</td>
+            <td>${withdrawableDisplay}</td>
+          </tr>`;
+            }
+
+            html += `</tbody></table></div></div></div>`;
+          } else if (payers !== undefined && payers !== null && payers.length === 0) {
+            html += `<div class="detail-card">
+      <div class="detail-card-header">Payers</div>
+      <div class="detail-card-body">
+        <div style="padding:14px 18px;color:var(--text-dim);font-size:13px">No deposits found.</div>
       </div></div>`;
           }
 
