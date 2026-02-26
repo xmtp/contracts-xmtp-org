@@ -1257,7 +1257,7 @@
                   : html;
               html += `<tr>
                 <td style="font-family:var(--mono);color:var(--text-dim)">${escapeHtml(signingType)}</td>
-                <td class="contract-name">${escapeHtml(signingType === "payer" ? "payer" : role)}</td>
+                <td class="contract-name">${escapeHtml(role)}</td>
                 <td>${renderAddress(info.address)}</td>
                 <td style="text-align:right">${wrapL2(formatEth(info.ethBalance))}</td>
                 <td style="text-align:right">${wrapL2(formatToken(info.underlyingBalance, info.underlyingDecimals))}</td>

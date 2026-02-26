@@ -737,23 +737,6 @@ async function getConfigDrift(env) {
   return results;
 }
 
-// Get unique payer addresses from Deposit events for a PayerRegistry contract
-async function getPayerAddresses(contract, provider) {
-  try {
-    const events = await queryEventsWithFallback(
-      contract,
-      contract.filters.Deposit(),
-      provider,
-    );
-    if (!events || events.length === 0) return [];
-    const seen = new Set();
-    for (const e of events) seen.add(e.args.payer);
-    return Array.from(seen);
-  } catch {
-    return [];
-  }
-}
-
 async function getAllBalances() {
   // eslint-disable-next-line global-require
   const addressData = require("../config/addresses.json");
@@ -781,25 +764,6 @@ async function getAllBalances() {
     }
   }
 
-  // Phase 1: fetch payer addresses from PayerRegistry events for all envs in parallel
-  const payerRegistryDef = SETTLEMENT_CONTRACTS.find((c) => c.name === "PayerRegistry");
-  const payerAddressesByEnv = Object.fromEntries(
-    await Promise.all(
-      ENVIRONMENTS.map(async (env) => {
-        try {
-          const address = payerRegistryDef ? getContractAddress(env, payerRegistryDef) : null;
-          if (!address) return [env, []];
-          const provider = getProvider(env, "settlement");
-          const contract = getContract(address, "PayerRegistry", provider);
-          return [env, await getPayerAddresses(contract, provider)];
-        } catch {
-          return [env, []];
-        }
-      }),
-    ),
-  );
-
-  // Phase 2: set up balance fetches for all addresses
   const promises = [];
 
   for (const env of ENVIRONMENTS) {
@@ -840,16 +804,6 @@ async function getAllBalances() {
       for (const [role, address] of Object.entries(roles)) {
         results[env][signingType][role] = { address };
         fetchBalances(address, results[env][signingType][role]);
-      }
-    }
-
-    // Add payers discovered from PayerRegistry Deposit events
-    const payerAddresses = payerAddressesByEnv[env] || [];
-    if (payerAddresses.length > 0) {
-      results[env]["payer"] = {};
-      for (const address of payerAddresses) {
-        results[env]["payer"][address] = { address };
-        fetchBalances(address, results[env]["payer"][address]);
       }
     }
   }

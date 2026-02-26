@@ -8,6 +8,9 @@
     "fireblocks": {
       "Admin (XMTP Governor)": "0x17727154c0A3F294e171b606fC403C727292ed50",
       "NodeRegistry Admin": "0xaAd9eFeBa3b6B5cbD2b2724d07f3618f891e44b8"
+    },
+    "own payer": {
+      "payer": "0x66B84B70CA5df3158CCb17A3863056b5aa0eA5c7"
     }
   },
   "testnet-staging": {
@@ -19,6 +22,9 @@
     "fireblocks": {
       "Admin (XMTP Governor)": "0x17727154c0A3F294e171b606fC403C727292ed50",
       "NodeRegistry Admin": "0xaAd9eFeBa3b6B5cbD2b2724d07f3618f891e44b8"
+    },
+    "own payer": {
+      "payer": "0x3B6ae08A3485c5cbBf9273fF9717c48037B870B6"
     }
   },
   "testnet": {
@@ -30,6 +36,9 @@
     "fireblocks": {
       "Admin (XMTP Governor)": "0x17727154c0A3F294e171b606fC403C727292ed50",
       "NodeRegistry Admin": "0xaAd9eFeBa3b6B5cbD2b2724d07f3618f891e44b8"
+    },
+    "own payer": {
+      "payer": "0x427B512414b9432C36F9912eF68BaD4b433a144a"
     }
   },
   "mainnet": {
