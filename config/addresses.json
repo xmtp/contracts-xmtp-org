@@ -1,0 +1,45 @@
+{
+  "testnet-dev": {
+    "wallet": {
+      "Admin":              "0x560469CBb7D1E29c7d56EfE765B21FbBaC639dC7",
+      "NodeRegistry Admin": "0x560469CBb7D1E29c7d56EfE765B21FbBaC639dC7",
+      "Deployer":           "0xE4b610ac9E75F98eaa1CC83eC1ac6A9eCaEe1e9f"
+    },
+    "fireblocks": {
+      "Admin (XMTP Governor)": "0x17727154c0A3F294e171b606fC403C727292ed50",
+      "NodeRegistry Admin": "0xaAd9eFeBa3b6B5cbD2b2724d07f3618f891e44b8"
+    }
+  },
+  "testnet-staging": {
+    "wallet": {
+      "Admin":              "0x560469CBb7D1E29c7d56EfE765B21FbBaC639dC7",
+      "NodeRegistry Admin": "0x560469CBb7D1E29c7d56EfE765B21FbBaC639dC7",
+      "Deployer":           "0xE4b610ac9E75F98eaa1CC83eC1ac6A9eCaEe1e9f"
+    },
+    "fireblocks": {
+      "Admin (XMTP Governor)": "0x17727154c0A3F294e171b606fC403C727292ed50",
+      "NodeRegistry Admin": "0xaAd9eFeBa3b6B5cbD2b2724d07f3618f891e44b8"
+    }
+  },
+  "testnet": {
+    "wallet": {
+      "Admin":              "0x560469CBb7D1E29c7d56EfE765B21FbBaC639dC7",
+      "NodeRegistry Admin": "0x560469CBb7D1E29c7d56EfE765B21FbBaC639dC7",
+      "Deployer":           "0xE4b610ac9E75F98eaa1CC83eC1ac6A9eCaEe1e9f"
+    },
+    "fireblocks": {
+      "Admin (XMTP Governor)": "0x17727154c0A3F294e171b606fC403C727292ed50",
+      "NodeRegistry Admin": "0xaAd9eFeBa3b6B5cbD2b2724d07f3618f891e44b8"
+    }
+  },
+  "mainnet": {
+    "wallet": {
+      "Admin":    "0x25943B130E3871273D389545178151878e3cac3e",
+      "Deployer": "0xD0d217d895372793900898183D18d10d3261984F"
+    },
+    "fireblocks": {
+      "Admin (XMTP Governor)": "0x0bb1dE335cf9c23723ca22c1fdFa64e51C1BEd67",
+      "Node Registry Admin":   "0xC3B4D9F4Bd0D308E672d01A826DA743bD806BCf5"
+    }
+  }
+}

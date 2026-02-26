@@ -1,0 +1,1238 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>XMTP Contract Admin</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <style>
+      :root {
+        --bg: #0d1117;
+        --bg-card: #161b22;
+        --bg-hover: #1c2333;
+        --border: #30363d;
+        --text: #e6edf3;
+        --text-dim: #8b949e;
+        --text-bright: #ffffff;
+        --accent: #58a6ff;
+        --green: #3fb950;
+        --red: #f85149;
+        --amber: #d29922;
+        --purple: #bc8cff;
+        --tab-active: #58a6ff;
+        --mono:
+          "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas,
+          monospace;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.5;
+      }
+
+      /* Brand Header */
+      .brand-header {
+        background: #09090b;
+        border-bottom: 1px solid rgba(63, 63, 70, 0.5);
+        padding: 16px 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+      }
+      .brand-logo {
+        height: 24px;
+      }
+      .brand-label {
+        font-size: 13px;
+        font-family: var(--mono);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: #a1a1aa;
+      }
+
+      /* Tabs */
+      .tabs {
+        display: flex;
+        background: var(--bg-card);
+        border-bottom: 1px solid var(--border);
+        padding: 0 24px;
+        gap: 0;
+      }
+      .tab {
+        padding: 12px 20px;
+        cursor: pointer;
+        color: var(--text-dim);
+        font-size: 14px;
+        font-weight: 500;
+        border-bottom: 2px solid transparent;
+        transition: all 0.15s;
+        user-select: none;
+      }
+      .tab:hover {
+        color: var(--text);
+      }
+      .tab.active {
+        color: var(--tab-active);
+        border-bottom-color: var(--tab-active);
+      }
+
+      /* Content */
+      .content {
+        padding: 24px;
+        max-width: 1600px;
+        margin: 0 auto;
+      }
+      .panel {
+        display: none;
+      }
+      .panel.active {
+        display: block;
+      }
+
+      /* Loading */
+      .loading {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--text-dim);
+        padding: 40px 0;
+      }
+      .spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Tables */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 16px;
+      }
+      th {
+        text-align: left;
+        padding: 6px 12px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+      td {
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        vertical-align: middle;
+        line-height: 22px;
+      }
+      tr:hover td {
+        background: var(--bg-hover);
+      }
+
+      .chain-header {
+        background: var(--bg-card) !important;
+        font-weight: 600;
+        color: var(--purple);
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .chain-header td {
+        padding: 5px 12px;
+      }
+
+      /* Version cells */
+      .version {
+        font-family: var(--mono);
+        font-size: 16px;
+      }
+      .version-match {
+        color: var(--green);
+      }
+      .version-mismatch {
+        color: var(--amber);
+        background: rgba(210, 153, 34, 0.08);
+      }
+      .version-latest {
+        color: var(--green);
+        background: rgba(63, 185, 80, 0.08);
+      }
+      .version-na {
+        color: var(--text-dim);
+      }
+      .version-clickable {
+        cursor: pointer;
+      }
+      .version-clickable:hover {
+        text-decoration: underline;
+      }
+      .balance-link {
+        text-decoration: none;
+        color: inherit;
+      }
+      .balance-link:hover {
+        text-decoration: underline;
+      }
+
+      /* Addresses */
+      .addr {
+        font-family: var(--mono);
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .addr a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .addr a:hover {
+        text-decoration: underline;
+      }
+      .copy-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--text-dim);
+        opacity: 0.4;
+        transition: opacity 0.15s;
+        padding: 2px;
+        font-size: 13px;
+        line-height: 1;
+      }
+      .copy-btn:hover {
+        opacity: 1;
+        color: var(--accent);
+      }
+      .copy-btn.copied {
+        opacity: 1;
+        color: var(--green);
+      }
+
+      /* Status badges */
+      .badge-match {
+        display: inline-block;
+        background: rgba(63, 185, 80, 0.15);
+        color: var(--green);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+      }
+      .badge-drift {
+        display: inline-block;
+        background: rgba(248, 81, 73, 0.15);
+        color: var(--red);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+      }
+
+      /* Contract Inspector */
+      .inspector-controls {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 24px;
+        align-items: center;
+      }
+      .inspector-controls select {
+        padding-top: 10px;
+        padding-bottom: 10px;
+      }
+      select {
+        background: var(--bg-card);
+        color: var(--text);
+        border: 1px solid var(--border);
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 16px;
+        cursor: pointer;
+        outline: none;
+      }
+      select:focus {
+        border-color: var(--accent);
+      }
+      optgroup {
+        color: var(--text-dim);
+      }
+
+      .detail-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 20px;
+      }
+      .detail-card-header {
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+        font-size: 16px;
+        color: var(--text-bright);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .detail-card-body {
+        padding: 0;
+      }
+      .detail-row {
+        display: flex;
+        border-bottom: 1px solid var(--border);
+        font-size: 16px;
+      }
+      .detail-row:last-child {
+        border-bottom: none;
+      }
+      .detail-key {
+        width: 220px;
+        min-width: 220px;
+        padding: 10px 18px;
+        color: var(--text-dim);
+        background: rgba(0, 0, 0, 0.15);
+        font-weight: 500;
+      }
+      .detail-val {
+        flex: 1;
+        padding: 10px 18px;
+        font-family: var(--mono);
+        font-size: 16px;
+        word-break: break-all;
+      }
+
+      /* Drift selectors (temporarily disabled)
+      .drift-controls {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 24px;
+        align-items: center;
+      }
+      .drift-section-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text-bright);
+        margin: 24px 0 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .drift-section-title:first-child {
+        margin-top: 0;
+      }
+      .drift-summary {
+        font-size: 12px;
+        color: var(--text-dim);
+        font-weight: 400;
+      }
+      */
+
+      /* Button */
+      .btn {
+        background: var(--bg-card);
+        color: var(--text);
+        border: 1px solid var(--border);
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 15px;
+        transition: all 0.15s;
+      }
+      .btn:hover {
+        background: var(--bg-hover);
+        border-color: var(--accent);
+      }
+
+      /* Contract name in tables */
+      .contract-name {
+        font-weight: 400;
+        font-size: 16px;
+        color: var(--text-bright);
+        line-height: 22px;
+      }
+
+      /* Boolean indicators */
+      .bool-true {
+        color: var(--amber);
+      }
+      .bool-false {
+        color: var(--green);
+      }
+
+      /* Read proxy link */
+      .read-proxy-link {
+        margin-left: 12px;
+        font-size: 11px;
+        color: var(--text-dim);
+        text-decoration: none;
+        border: 1px solid var(--border);
+        padding: 2px 8px;
+        border-radius: 4px;
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+      .read-proxy-link:hover {
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+
+      /* Responsive */
+      .table-wrapper {
+        overflow-x: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <a href="/" class="brand-header" style="text-decoration: none">
+      <img src="/xmtp-logo-white.svg" alt="XMTP" class="brand-logo" />
+      <span class="brand-label">Contract Admin</span>
+    </a>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="status">Contract Status</div>
+      <div class="tab" data-tab="inspector">Contract Inspector</div>
+      <div class="tab" data-tab="balances">Balances</div>
+      <!-- <div class="tab" data-tab="drift">Config Drift</div> -->
+    </div>
+
+    <div class="content">
+      <!-- Version Matrix -->
+      <div class="panel active" id="panel-status">
+        <div class="loading" id="status-loading">
+          <div class="spinner"></div>
+          Loading contract status...
+        </div>
+        <div class="detail-card" id="status-card" style="display: none">
+          <div class="detail-card-header">Contract Versions</div>
+          <div class="detail-card-body">
+            <div class="table-wrapper">
+              <table id="status-table"></table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contract Inspector -->
+      <div class="panel" id="panel-inspector">
+        <div class="inspector-controls">
+          <select id="inspector-env">
+            <option value="" disabled selected>Select environment...</option>
+          </select>
+          <select id="inspector-contract" disabled>
+            <option value="" disabled selected>Select contract...</option>
+          </select>
+        </div>
+        <div id="inspector-result"></div>
+      </div>
+
+      <!-- Balances -->
+      <div class="panel" id="panel-balances">
+        <div class="loading" id="balances-loading">
+          <div class="spinner"></div>
+          Loading balances...
+        </div>
+        <div id="balances-result"></div>
+      </div>
+
+      <!-- Config Drift (temporarily disabled)
+      <div class="panel" id="panel-drift">
+        <div class="drift-controls">
+          <select id="drift-env">
+            <option value="" disabled selected>Select environment...</option>
+          </select>
+        </div>
+        <div id="drift-result"></div>
+      </div>
+      -->
+    </div>
+
+    <script>
+      // ---- Utilities ----
+
+      function escapeHtml(str) {
+        if (str === null || str === undefined) return "";
+        const div = document.createElement("div");
+        div.textContent = String(str);
+        return div.innerHTML;
+      }
+
+      function copyToClipboard(text, btn) {
+        navigator.clipboard.writeText(text).then(() => {
+          btn.classList.add("copied");
+          btn.textContent = "\u2713";
+          setTimeout(() => {
+            btn.classList.remove("copied");
+            btn.textContent = "\u2398";
+          }, 1500);
+        });
+      }
+
+      function renderAddress(address, explorerUrl) {
+        if (!address) return '<span style="color:var(--text-dim)">-</span>';
+        const link = explorerUrl
+          ? `<a href="${explorerUrl}/address/${address}" target="_blank" rel="noopener">${address}</a>`
+          : address;
+        return `<span class="addr">${link}<button class="copy-btn" onclick="copyToClipboard('${address}', this)" title="Copy">\u2398</button></span>`;
+      }
+
+      function formatBigValue(val) {
+        if (val === null || val === undefined) return "-";
+        if (typeof val === "boolean" || val === "true" || val === "false") {
+          const b = val === true || val === "true";
+          return `<span class="${b ? "bool-true" : "bool-false"}">${escapeHtml(val)}</span>`;
+        }
+        if (
+          typeof val === "string" &&
+          val.startsWith("0x") &&
+          val.length === 42
+        ) {
+          return renderAddress(val);
+        }
+        return `<span style="font-family:var(--mono);font-size:12px">${escapeHtml(val)}</span>`;
+      }
+
+      // Compare semver strings: returns -1, 0, or 1
+      function compareSemver(a, b) {
+        const pa = a.split(".").map(Number);
+        const pb = b.split(".").map(Number);
+        for (let i = 0; i < 3; i++) {
+          if ((pa[i] || 0) > (pb[i] || 0)) return 1;
+          if ((pa[i] || 0) < (pb[i] || 0)) return -1;
+        }
+        return 0;
+      }
+
+      function toggleUnsetParams(checkbox) {
+        const card = checkbox.closest(".detail-card");
+        const rows = card.querySelectorAll(
+          '.detail-row[data-param-unset="true"]',
+        );
+        for (const row of rows) {
+          row.style.display = checkbox.checked ? "none" : "";
+        }
+      }
+
+      function formatEth(rawWei) {
+        if (rawWei === null || rawWei === undefined) {
+          return '<span style="color:var(--text-dim)">—</span>';
+        }
+        try {
+          const val = Number(BigInt(rawWei)) / 1e18;
+          const color = val === 0 ? "var(--text-dim)" : "var(--green)";
+          return `<span style="font-family:var(--mono);font-size:16px;color:${color}">${val.toFixed(6)}</span>`;
+        } catch {
+          return '<span style="color:var(--red)">err</span>';
+        }
+      }
+
+      function formatToken(rawAmount, decimals) {
+        if (rawAmount === null || rawAmount === undefined) {
+          return '<span style="color:var(--text-dim)">—</span>';
+        }
+        try {
+          const divisor = Math.pow(10, decimals || 6);
+          const val = Number(BigInt(rawAmount)) / divisor;
+          const color = val === 0 ? "var(--text-dim)" : "var(--green)";
+          return `<span style="font-family:var(--mono);font-size:16px;color:${color}">${val.toFixed(6)}</span>`;
+        } catch {
+          return '<span style="color:var(--red)">err</span>';
+        }
+      }
+
+      // ---- State ----
+      let meta = null;
+
+      // ---- URL hash state ----
+      const VALID_TABS = new Set(["status", "inspector", "balances"]);
+
+      function updateHash(push) {
+        const activeTab = document.querySelector(".tab.active");
+        const tab = activeTab ? activeTab.dataset.tab : "status";
+        const params = new URLSearchParams();
+        params.set("tab", tab);
+        if (tab === "inspector") {
+          const env = document.getElementById("inspector-env").value;
+          const contract = document.getElementById("inspector-contract").value;
+          if (env) params.set("env", env);
+          if (contract) params.set("contract", contract);
+        }
+        const url = "#" + params.toString();
+        if (push) {
+          history.pushState(null, "", url);
+        } else {
+          history.replaceState(null, "", url);
+        }
+      }
+
+      function getHashParams() {
+        const hash = location.hash.slice(1);
+        return new URLSearchParams(hash);
+      }
+
+      window.addEventListener("popstate", () => {
+        const params = getHashParams();
+        const tab = params.get("tab") || "status";
+        switchToTab(VALID_TABS.has(tab) ? tab : "status");
+        if (tab === "inspector") {
+          const env = params.get("env");
+          const contract = params.get("contract");
+          if (env) {
+            document.getElementById("inspector-env").value = env;
+            populateContractDropdown(env);
+            if (contract) {
+              document.getElementById("inspector-contract").value = contract;
+              loadContractDetails();
+            }
+          }
+        }
+      });
+
+      // ---- Tab switching ----
+      function switchToTab(tabName) {
+        document
+          .querySelectorAll(".tab")
+          .forEach((t) => t.classList.remove("active"));
+        document
+          .querySelectorAll(".panel")
+          .forEach((p) => p.classList.remove("active"));
+        const tabEl = document.querySelector(`.tab[data-tab="${tabName}"]`);
+        if (tabEl) {
+          tabEl.classList.add("active");
+          document.getElementById(`panel-${tabName}`).classList.add("active");
+        }
+        if (tabName === "status" && !versionsLoaded) loadVersions();
+        if (tabName === "balances" && !balancesLoaded) loadBalances();
+      }
+
+      document.querySelectorAll(".tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          switchToTab(tab.dataset.tab);
+          updateHash(true);
+        });
+      });
+
+      // ---- Version Matrix ----
+      let versionsLoaded = false;
+
+      async function loadVersions() {
+        const loading = document.getElementById("status-loading");
+        const table = document.getElementById("status-table");
+        const card = document.getElementById("status-card");
+        loading.style.display = "flex";
+        card.style.display = "none";
+
+        try {
+          const [metaResp, versionsResp, pausedResp] = await Promise.all([
+            fetch("/api/meta").then((r) => r.json()),
+            fetch("/api/versions").then((r) => r.json()),
+            fetch("/api/paused").then((r) => r.json()),
+          ]);
+          meta = metaResp;
+          renderVersionMatrix(metaResp, versionsResp, pausedResp);
+          populateSelectors(metaResp);
+          versionsLoaded = true;
+        } catch (err) {
+          loading.innerHTML = `<span style="color:var(--red)">Error: ${escapeHtml(err.message)}</span>`;
+        }
+      }
+
+      function renderVersionMatrix(metaData, versions, pausedData) {
+        const envs = metaData.environments;
+        const table = document.getElementById("status-table");
+        const loading = document.getElementById("status-loading");
+        let totalDiffs = 0;
+
+        // Build header
+        let html = `<thead><tr><th style="min-width:260px">Contract</th>`;
+        for (const env of envs) {
+          html += `<th style="text-align:center">${env}</th>`;
+        }
+        html += `<th style="text-align:center">Version Status</th>`;
+        html += `</tr></thead><tbody>`;
+
+        function renderContractRow(name, chain, envs, versions, pausedData) {
+          const versionValues = envs.map((env) => {
+            const chainData = versions[env]?.[chain];
+            return chainData?.[name] || null;
+          });
+          const nonNull = versionValues.filter((v) => v !== null);
+          const allSame =
+            nonNull.length > 0 && nonNull.every((v) => v === nonNull[0]);
+          const maxVersion =
+            nonNull.length > 0
+              ? nonNull.reduce((a, b) => (compareSemver(a, b) >= 0 ? a : b))
+              : null;
+
+          if (!allSame && nonNull.length > 1) totalDiffs++;
+
+          html += `<tr><td class="contract-name">${name}</td>`;
+          for (let i = 0; i < envs.length; i++) {
+            const v = versionValues[i];
+            const env = envs[i];
+            const paused = pausedData[env]?.[chain]?.[name] ?? null;
+            const pausedHtml =
+              paused === true
+                ? '<br><span class="badge-drift">Paused</span>'
+                : paused === false
+                  ? '<br><span class="badge-match">Unpaused</span>'
+                  : "";
+            if (v === null) {
+              html += `<td style="text-align:center"><span class="version version-na">-</span>${pausedHtml}</td>`;
+            } else if (allSame) {
+              html += `<td style="text-align:center"><span class="version version-match version-clickable" onclick="navigateToContract('${env}','${chain}','${name}')">${v}</span>${pausedHtml}</td>`;
+            } else {
+              const isLatest = compareSemver(v, maxVersion) === 0;
+              const cls = isLatest ? "version-latest" : "version-mismatch";
+              html += `<td style="text-align:center"><span class="version ${cls} version-clickable" onclick="navigateToContract('${env}','${chain}','${name}')">${v}</span>${pausedHtml}</td>`;
+            }
+          }
+          // Status column
+          if (nonNull.length === 0) {
+            html += `<td style="text-align:center"><span class="version version-na">-</span></td>`;
+          } else if (allSame) {
+            html += `<td style="text-align:center"><span class="badge-match">Match</span></td>`;
+          } else {
+            html += `<td style="text-align:center"><span class="badge-drift">Difference</span></td>`;
+          }
+          html += `</tr>`;
+        }
+
+        // Settlement chain contracts
+        html += `<tr class="chain-header"><td colspan="${envs.length + 2}">Settlement Chain (Base L2)</td></tr>`;
+        const settlementContracts = [
+          ...metaData.meta[envs[0]].settlement.contracts,
+        ].sort();
+        for (const name of settlementContracts) {
+          renderContractRow(name, "settlement", envs, versions, pausedData);
+        }
+
+        // App chain contracts
+        html += `<tr class="chain-header"><td colspan="${envs.length + 2}">App Chain (XMTP L3)</td></tr>`;
+        const appContracts = [...metaData.meta[envs[0]].app.contracts].sort();
+        for (const name of appContracts) {
+          renderContractRow(name, "app", envs, versions, pausedData);
+        }
+
+        html += `</tbody>`;
+        table.innerHTML = html;
+        loading.style.display = "none";
+        document.getElementById("status-card").style.display = "";
+        return totalDiffs;
+      }
+
+      // ---- Contract Inspector ----
+      let selectorsPopulated = false;
+      function populateSelectors(m) {
+        if (selectorsPopulated) return;
+        selectorsPopulated = true;
+        const envSelect = document.getElementById("inspector-env");
+        // const driftEnvSelect = document.getElementById("drift-env");
+        for (const env of m.environments) {
+          envSelect.appendChild(new Option(env, env));
+          // driftEnvSelect.appendChild(new Option(env, env));
+        }
+      }
+
+      function populateContractDropdown(envName, preserveSelection) {
+        const contractSelect = document.getElementById("inspector-contract");
+        const previousVal = contractSelect.value;
+
+        // Clear existing options (innerHTML removes optgroups too)
+        contractSelect.innerHTML = "";
+        const placeholder = new Option("Select contract...", "");
+        placeholder.disabled = true;
+        placeholder.selected = true;
+        contractSelect.appendChild(placeholder);
+
+        if (!envName || !meta) {
+          contractSelect.disabled = true;
+          return;
+        }
+
+        const envMeta = meta.meta[envName];
+
+        const settlementGroup = document.createElement("optgroup");
+        settlementGroup.label = "Settlement Chain";
+        for (const name of [...envMeta.settlement.contracts].sort()) {
+          settlementGroup.appendChild(new Option(name, `settlement:${name}`));
+        }
+        contractSelect.appendChild(settlementGroup);
+
+        const appGroup = document.createElement("optgroup");
+        appGroup.label = "App Chain";
+        for (const name of [...envMeta.app.contracts].sort()) {
+          appGroup.appendChild(new Option(name, `app:${name}`));
+        }
+        contractSelect.appendChild(appGroup);
+
+        contractSelect.disabled = false;
+
+        // Restore previous contract selection if switching envs
+        if (preserveSelection && previousVal) {
+          contractSelect.value = previousVal;
+        }
+      }
+
+      function autoLoadIfReady() {
+        const env = document.getElementById("inspector-env").value;
+        const contractVal = document.getElementById("inspector-contract").value;
+        if (env && contractVal) loadContractDetails();
+      }
+
+      document
+        .getElementById("inspector-env")
+        .addEventListener("change", function () {
+          populateContractDropdown(this.value, true);
+          autoLoadIfReady();
+          updateHash();
+        });
+
+      document
+        .getElementById("inspector-contract")
+        .addEventListener("change", function () {
+          autoLoadIfReady();
+          updateHash();
+        });
+
+      async function loadContractDetails() {
+        const env = document.getElementById("inspector-env").value;
+        const contractVal = document.getElementById("inspector-contract").value;
+        if (!env || !contractVal) return;
+
+        const [chain, name] = contractVal.split(":");
+        const resultDiv = document.getElementById("inspector-result");
+        resultDiv.innerHTML =
+          '<div class="loading"><div class="spinner"></div>Loading contract state...</div>';
+
+        try {
+          const data = await fetch(
+            `/api/contract/${env}/${chain}/${name}`,
+          ).then((r) => r.json());
+          if (data.error) {
+            resultDiv.innerHTML = `<p style="color:var(--red)">${escapeHtml(data.error)}</p>`;
+            return;
+          }
+          renderContractDetails(data, resultDiv);
+        } catch (err) {
+          resultDiv.innerHTML = `<p style="color:var(--red)">Error: ${escapeHtml(err.message)}</p>`;
+        }
+      }
+
+      function renderContractDetails(data, container) {
+        const explorer = data.explorer || "";
+
+        let html = "";
+
+        // Header card
+        html += `<div class="detail-card">
+    <div class="detail-card-header">
+      ${escapeHtml(data.name)}
+      <span style="color:var(--text-dim);font-weight:400;font-size:12px">${escapeHtml(data.environment)} / ${escapeHtml(data.chain)}-chain</span>
+    </div>
+    <div class="detail-card-body">
+      <div class="detail-row"><div class="detail-key">Version</div><div class="detail-val">${escapeHtml(data.version) || "-"}</div></div>
+      <div class="detail-row"><div class="detail-key">Contract Name</div><div class="detail-val">${escapeHtml(data.contractNameOnChain) || "-"}</div></div>
+      <div class="detail-row"><div class="detail-key">Chain ID</div><div class="detail-val">${escapeHtml(data.chainId) || "-"}</div></div>
+      <div class="detail-row"><div class="detail-key">Proxy Address</div><div class="detail-val">${renderAddress(data.address, explorer)}${data.address && explorer ? `<a href="${explorer}/address/${data.address}#readProxyContract" target="_blank" rel="noopener" class="read-proxy-link">Read Proxy &#8599;</a>` : ""}</div></div>
+      <div class="detail-row"><div class="detail-key">Implementation</div><div class="detail-val">${renderAddress(data.implementation, explorer)}</div></div>
+    </div>
+  </div>`;
+
+        if (data.state) {
+          // Separate special fields from simple scalar fields
+          const {
+            allNodes,
+            canonicalNodes,
+            knownParameters,
+            lastPayerReports,
+            ...simpleState
+          } = data.state;
+
+          // Simple state fields
+          const simpleEntries = Object.entries(simpleState).filter(
+            ([, val]) => val !== null,
+          );
+          if (simpleEntries.length > 0) {
+            html += `<div class="detail-card">
+      <div class="detail-card-header">Storage State</div>
+      <div class="detail-card-body">`;
+
+            for (const [key, val] of simpleEntries) {
+              if (Array.isArray(val)) {
+                // Simple arrays (like canonicalNodes rendered here as fallback)
+                html += `<div class="detail-row"><div class="detail-key">${escapeHtml(key)}</div><div class="detail-val"><span style="font-family:var(--mono);font-size:12px">${escapeHtml(val.join(", "))}</span></div></div>`;
+              } else {
+                const isAddr =
+                  typeof val === "string" &&
+                  val.startsWith("0x") &&
+                  val.length === 42;
+                const rendered = isAddr
+                  ? renderAddress(val, explorer)
+                  : formatBigValue(val);
+                html += `<div class="detail-row"><div class="detail-key">${escapeHtml(key)}</div><div class="detail-val">${rendered}</div></div>`;
+              }
+            }
+
+            html += `</div></div>`;
+          }
+
+          // Node details table
+          if (allNodes && allNodes.length > 0) {
+            html += `<div class="detail-card">
+      <div class="detail-card-header">Nodes <span style="color:var(--text-dim);font-weight:400;font-size:12px">${allNodes.length} total</span></div>
+      <div class="detail-card-body"><div class="table-wrapper">
+        <table style="margin:0">
+          <thead><tr>
+            <th>ID</th>
+            <th>Signer</th>
+            <th>Canonical</th>
+            <th>HTTP Address</th>
+          </tr></thead><tbody>`;
+
+            for (const node of allNodes) {
+              const canonicalBadge = node.isCanonical
+                ? '<span class="badge-match">Yes</span>'
+                : '<span style="color:var(--text-dim)">No</span>';
+              html += `<tr>
+            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(node.nodeId)}</td>
+            <td>${renderAddress(node.signer, explorer)}</td>
+            <td style="text-align:center">${canonicalBadge}</td>
+            <td style="font-family:var(--mono);font-size:12px;word-break:break-all">${escapeHtml(node.httpAddress || "-")}</td>
+          </tr>`;
+            }
+
+            html += `</tbody></table></div></div></div>`;
+          }
+
+          // Last payer reports per originator
+          if (lastPayerReports && lastPayerReports.length > 0) {
+            html += `<div class="detail-card">
+      <div class="detail-card-header">Last Payer Reports <span style="color:var(--text-dim);font-weight:400;font-size:12px">${lastPayerReports.length} originator${lastPayerReports.length !== 1 ? "s" : ""}</span></div>
+      <div class="detail-card-body"><div class="table-wrapper">
+        <table style="margin:0">
+          <thead><tr>
+            <th>Originator</th>
+            <th>Report #</th>
+            <th>Sequence Range</th>
+            <th>End Time</th>
+            <th>Settled</th>
+            <th>Fees Settled</th>
+            <th>Node IDs</th>
+          </tr></thead><tbody>`;
+
+            for (const r of lastPayerReports) {
+              const endTime =
+                r.endMinuteSinceEpoch && r.endMinuteSinceEpoch > 0
+                  ? new Date(r.endMinuteSinceEpoch * 60 * 1000)
+                      .toISOString()
+                      .replace("T", " ")
+                      .replace(".000Z", " UTC")
+                  : "-";
+              const settledBadge = r.isSettled
+                ? '<span class="badge-match">Yes</span>'
+                : '<span style="color:var(--amber)">No</span>';
+
+              html += `<tr>
+            <td style="font-family:var(--mono);font-size:13px">${escapeHtml(r.originatorNodeId)}</td>
+            <td style="font-family:var(--mono);font-size:13px">${escapeHtml(r.reportIndex)}</td>
+            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(r.startSequenceId)} &rarr; ${escapeHtml(r.endSequenceId)}</td>
+            <td style="font-size:12px">${endTime}</td>
+            <td style="text-align:center">${settledBadge}</td>
+            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(r.feesSettled || "0")}</td>
+            <td style="font-family:var(--mono);font-size:12px">${escapeHtml((r.nodeIds || []).join(", ") || "-")}</td>
+          </tr>`;
+            }
+
+            html += `</tbody></table></div></div></div>`;
+          } else if (
+            lastPayerReports !== undefined &&
+            lastPayerReports !== null &&
+            lastPayerReports.length === 0
+          ) {
+            html += `<div class="detail-card">
+      <div class="detail-card-header">Last Payer Reports</div>
+      <div class="detail-card-body">
+        <div style="padding:14px 18px;color:var(--text-dim);font-size:13px">No payer reports submitted yet.</div>
+      </div></div>`;
+          }
+
+          // Known parameter values
+          if (knownParameters) {
+            const paramEntries = Object.entries(knownParameters);
+            const setCount = paramEntries.filter(
+              ([, val]) => val !== null,
+            ).length;
+            const paramCardId = `param-card-${Date.now()}`;
+            html += `<div class="detail-card">
+      <div class="detail-card-header">Known Parameter Values <span style="color:var(--text-dim);font-weight:400;font-size:12px">${setCount} of ${paramEntries.length} set</span>
+        <label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:400;color:var(--text-dim);cursor:pointer;user-select:none">
+          <input type="checkbox" id="${paramCardId}-filter" onchange="toggleUnsetParams(this)" style="cursor:pointer;accent-color:var(--accent)">
+          Only show keys with values
+        </label>
+      </div>
+      <div class="detail-card-body" id="${paramCardId}-body">
+        <div style="padding:10px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--amber);background:rgba(210,153,34,0.06)">
+          &#9888; These are known parameter keys from code &mdash; not guaranteed to be ALL values in the registry.
+        </div>`;
+
+            for (const [key, val] of paramEntries) {
+              const rendered =
+                val === null
+                  ? '<span style="color:var(--text-dim)">not set</span>'
+                  : formatBigValue(val);
+              const unsetAttr = val === null ? ' data-param-unset="true"' : "";
+              html += `<div class="detail-row"${unsetAttr}><div class="detail-key" style="width:380px;min-width:380px;font-family:var(--mono);font-size:11px">${escapeHtml(key)}</div><div class="detail-val">${rendered}</div></div>`;
+            }
+
+            html += `</div></div>`;
+          }
+        }
+
+        container.innerHTML = html;
+      }
+
+      function navigateToContract(env, chain, name) {
+        switchToTab("inspector");
+
+        // Set environment and populate contract dropdown
+        const envSelect = document.getElementById("inspector-env");
+        envSelect.value = env;
+        populateContractDropdown(env);
+
+        // Select the contract and load
+        document.getElementById("inspector-contract").value =
+          `${chain}:${name}`;
+        loadContractDetails();
+        updateHash(true);
+      }
+
+      // ---- Balances ----
+      let balancesLoaded = false;
+
+      async function loadBalances() {
+        const loading = document.getElementById("balances-loading");
+        const result = document.getElementById("balances-result");
+        loading.style.display = "flex";
+        result.innerHTML = "";
+
+        try {
+          const [metaResp, balancesData] = await Promise.all([
+            meta
+              ? Promise.resolve(meta)
+              : fetch("/api/meta").then((r) => r.json()),
+            fetch("/api/balances").then((r) => r.json()),
+          ]);
+          if (!meta) meta = metaResp;
+          if (balancesData.error) throw new Error(balancesData.error);
+          renderBalances(balancesData, result);
+          balancesLoaded = true;
+        } catch (err) {
+          result.innerHTML = `<div style="padding:16px"><span style="color:var(--red)">Error: ${escapeHtml(err.message)}</span></div>`;
+          loading.style.display = "none";
+          return;
+        }
+        loading.style.display = "none";
+      }
+
+      function renderBalances(data, container) {
+        const TYPE_ORDER = ["wallet", "fireblocks"];
+        const ENV_ORDER = Object.keys(data);
+        let html = "";
+
+        for (const env of ENV_ORDER) {
+          const envData = data[env];
+          if (!envData) continue;
+
+          const explorerUrl = meta?.meta?.[env]?.settlement?.explorer || "";
+          const appExplorerUrl = meta?.meta?.[env]?.app?.explorer || "";
+
+          html += `<div class="detail-card">`;
+          html += `<div class="detail-card-header">${escapeHtml(env)}</div>`;
+          html += `<div class="detail-card-body"><div class="table-wrapper"><table>`;
+          html += `<thead>
+            <tr>
+              <th>Type</th>
+              <th>Role</th>
+              <th>Address</th>
+              <th style="text-align:right">ETH (Base L2)</th>
+              <th style="text-align:right">xUSD (Base L2)</th>
+              <th style="text-align:right">xUSD (App Chain L3)</th>
+            </tr>
+          </thead><tbody>`;
+
+          const orderedTypes = TYPE_ORDER.filter((t) => envData[t]).concat(
+            Object.keys(envData).filter((t) => !TYPE_ORDER.includes(t)),
+          );
+
+          for (const signingType of orderedTypes) {
+            const roles = envData[signingType];
+            if (!roles) continue;
+            for (const [role, info] of Object.entries(roles)) {
+              const wrapL2 = (html) =>
+                explorerUrl && info.address
+                  ? `<a href="${explorerUrl}/address/${info.address}" target="_blank" rel="noopener" class="balance-link">${html}</a>`
+                  : html;
+              const wrapL3 = (html) =>
+                appExplorerUrl && info.address
+                  ? `<a href="${appExplorerUrl}/address/${info.address}" target="_blank" rel="noopener" class="balance-link">${html}</a>`
+                  : html;
+              html += `<tr>
+                <td style="font-family:var(--mono);color:var(--text-dim)">${escapeHtml(signingType)}</td>
+                <td class="contract-name">${escapeHtml(role)}</td>
+                <td>${renderAddress(info.address)}</td>
+                <td style="text-align:right">${wrapL2(formatEth(info.ethBalance))}</td>
+                <td style="text-align:right">${wrapL2(formatToken(info.underlyingBalance, info.underlyingDecimals))}</td>
+                <td style="text-align:right">${wrapL3(formatToken(info.feeTokenBalance, info.feeTokenDecimals))}</td>
+              </tr>`;
+            }
+          }
+
+          html += `</tbody></table></div></div></div>`;
+        }
+
+        container.innerHTML = html;
+      }
+
+      // ---- Config Drift (temporarily disabled) ----
+      /*
+      document
+        .getElementById("drift-env")
+        .addEventListener("change", loadDrift);
+
+      async function loadDrift() {
+        const env = document.getElementById("drift-env").value;
+        if (!env) return;
+
+        const resultDiv = document.getElementById("drift-result");
+        resultDiv.innerHTML =
+          '<div class="loading"><div class="spinner"></div>Checking config drift...</div>';
+
+        try {
+          const data = await fetch(`/api/drift/${env}`).then((r) => r.json());
+          renderDrift(data, env, resultDiv);
+        } catch (err) {
+          resultDiv.innerHTML = `<p style="color:var(--red)">Error: ${escapeHtml(err.message)}</p>`;
+        }
+      }
+
+      function renderDrift(data, env, container) {
+        let html = "";
+
+        // Part A: Config vs Environment file
+        const addrDrifts = data.addressComparison.filter(
+          (r) => !r.match,
+        ).length;
+        html += `<div class="drift-section-title">
+    Part A: Config File vs Environment File
+    <span class="drift-summary">${addrDrifts === 0 ? "All match" : `${addrDrifts} mismatch${addrDrifts > 1 ? "es" : ""}`}</span>
+  </div>`;
+        html += `<div class="table-wrapper"><table>
+    <thead><tr>
+      <th>Field</th>
+      <th>Chain</th>
+      <th>config/${escapeHtml(env)}.json</th>
+      <th>environments/${escapeHtml(env)}.json</th>
+      <th>Status</th>
+    </tr></thead><tbody>`;
+
+        for (const row of data.addressComparison) {
+          html += `<tr>
+      <td class="contract-name">${escapeHtml(row.label)}</td>
+      <td>${escapeHtml(row.chain) || "-"}</td>
+      <td><span class="addr" style="font-family:var(--mono);font-size:12px">${row.configValue || "-"}${row.configValue ? `<button class="copy-btn" onclick="copyToClipboard('${row.configValue}', this)" title="Copy">\u2398</button>` : ""}</span></td>
+      <td><span class="addr" style="font-family:var(--mono);font-size:12px">${row.envValue || "-"}${row.envValue ? `<button class="copy-btn" onclick="copyToClipboard('${row.envValue}', this)" title="Copy">\u2398</button>` : ""}</span></td>
+      <td>${row.match ? '<span class="badge-match">Match</span>' : '<span class="badge-drift">Drift</span>'}</td>
+    </tr>`;
+        }
+        html += `</tbody></table></div>`;
+
+        // Part B: Config implementation vs on-chain
+        const implDrifts = data.implementationComparison.filter(
+          (r) => !r.match,
+        ).length;
+        html += `<div class="drift-section-title">
+    Part B: Config Implementation vs On-Chain
+    <span class="drift-summary">${implDrifts === 0 ? "All match" : `${implDrifts} mismatch${implDrifts > 1 ? "es" : ""}`}</span>
+  </div>`;
+        html += `<div class="table-wrapper"><table>
+    <thead><tr>
+      <th>Contract</th>
+      <th>Chain</th>
+      <th>Config Implementation</th>
+      <th>On-Chain Implementation</th>
+      <th>Status</th>
+    </tr></thead><tbody>`;
+
+        for (const row of data.implementationComparison) {
+          html += `<tr>
+      <td class="contract-name">${escapeHtml(row.label)}</td>
+      <td>${escapeHtml(row.chain)}</td>
+      <td>${renderAddress(row.configImplementation)}</td>
+      <td>${renderAddress(row.onChainImplementation)}</td>
+      <td>${row.match ? '<span class="badge-match">Match</span>' : '<span class="badge-drift">Drift</span>'}</td>
+    </tr>`;
+        }
+        html += `</tbody></table></div>`;
+
+        container.innerHTML = html;
+      }
+      */
+
+      // ---- Init ----
+      // Populate selectors independently so inspector tab works
+      // even if version loading is slow or fails
+      const hashParams = getHashParams();
+      const rawTab = hashParams.get("tab") || "status";
+      const initialTab = VALID_TABS.has(rawTab) ? rawTab : "status";
+
+      fetch("/api/meta")
+        .then((r) => r.json())
+        .then((m) => {
+          meta = m;
+          populateSelectors(m);
+
+          // Restore inspector selections from hash
+          if (initialTab === "inspector") {
+            const env = hashParams.get("env");
+            const contract = hashParams.get("contract");
+            if (env) {
+              document.getElementById("inspector-env").value = env;
+              populateContractDropdown(env);
+              if (contract) {
+                document.getElementById("inspector-contract").value = contract;
+                loadContractDetails();
+              }
+            }
+          }
+        });
+
+      switchToTab(initialTab);
+      if (initialTab === "status") loadVersions();
+    </script>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
