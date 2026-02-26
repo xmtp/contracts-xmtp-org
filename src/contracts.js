@@ -228,6 +228,79 @@ async function readLastPayerReports(contract, provider) {
   }
 }
 
+// Helper: query events with fallback to recent blocks on range errors
+async function queryEventsWithFallback(contract, filter, provider) {
+  try {
+    return await contract.queryFilter(filter);
+  } catch {
+    const currentBlock = await provider.getBlockNumber();
+    return await contract.queryFilter(
+      filter,
+      Math.max(0, currentBlock - 500000),
+    );
+  }
+}
+
+// Read all payers with balances, totals deposited/settled, and pending withdrawals
+async function readPayers(contract, provider) {
+  try {
+    // Query Deposit and UsageSettled events in parallel
+    const [depositEvents, settledEvents] = await Promise.all([
+      queryEventsWithFallback(contract, contract.filters.Deposit(), provider),
+      queryEventsWithFallback(contract, contract.filters.UsageSettled(), provider).catch(() => []),
+    ]);
+
+    if (!depositEvents || depositEvents.length === 0) return [];
+
+    // Accumulate total deposited per payer
+    const depositsByPayer = {};
+    for (const event of depositEvents) {
+      const payer = event.args.payer;
+      depositsByPayer[payer] = (depositsByPayer[payer] ?? 0n) + event.args.amount;
+    }
+
+    // Accumulate total settled per payer
+    const settledByPayer = {};
+    for (const event of settledEvents || []) {
+      const payer = event.args.payer;
+      settledByPayer[payer] = (settledByPayer[payer] ?? 0n) + event.args.amount;
+    }
+
+    const payers = Object.keys(depositsByPayer);
+
+    // Batch fetch balances + pending withdrawals in parallel
+    let balances;
+    try {
+      balances = await contract.getBalances(payers);
+    } catch {
+      balances = await Promise.all(
+        payers.map((p) => safeCall(contract, "getBalance", p)),
+      );
+    }
+
+    const pendingWithdrawals = await Promise.all(
+      payers.map((p) => safeCall(contract, "getPendingWithdrawal", p)),
+    );
+
+    return payers.map((address, i) => {
+      const pw = pendingWithdrawals[i];
+      return {
+        address,
+        balance: balances[i] !== null && balances[i] !== undefined ? balances[i] : null,
+        totalDeposited: depositsByPayer[address] ?? null,
+        totalSettled: settledByPayer[address] ?? null,
+        pendingWithdrawal: pw ? pw[0] : null,
+        withdrawableTimestamp: pw ? Number(pw[1]) : null,
+      };
+    });
+  } catch (err) {
+    if (process.env.DEBUG) {
+      console.debug(`readPayers failed: ${err.message}`);
+    }
+    return null;
+  }
+}
+
 // Read version from a contract
 async function readVersion(env, chain, contractDef) {
   const address = getContractAddress(env, contractDef);
@@ -352,18 +425,44 @@ const stateReaders = {
     };
   },
 
-  PayerRegistry: async (contract) => ({
-    feeToken: await safeCall(contract, "feeToken"),
-    settler: await safeCall(contract, "settler"),
-    feeDistributor: await safeCall(contract, "feeDistributor"),
-    minimumDeposit: await safeCall(contract, "minimumDeposit"),
-    withdrawLockPeriod: await safeCall(contract, "withdrawLockPeriod"),
-    totalDeposits: await safeCall(contract, "totalDeposits"),
-    totalDebt: await safeCall(contract, "totalDebt"),
-    excess: await safeCall(contract, "excess"),
-    paused: await safeCall(contract, "paused"),
-    parameterRegistry: await safeCall(contract, "parameterRegistry"),
-  }),
+  PayerRegistry: async (contract, provider) => {
+    const [
+      feeToken, settler, feeDistributor, minimumDeposit, withdrawLockPeriod,
+      totalDeposits, totalDebt, totalWithdrawable, excess, paused, parameterRegistry, payers,
+    ] = await Promise.all([
+      safeCall(contract, "feeToken"),
+      safeCall(contract, "settler"),
+      safeCall(contract, "feeDistributor"),
+      safeCall(contract, "minimumDeposit"),
+      safeCall(contract, "withdrawLockPeriod"),
+      safeCall(contract, "totalDeposits"),
+      safeCall(contract, "totalDebt"),
+      safeCall(contract, "totalWithdrawable"),
+      safeCall(contract, "excess"),
+      safeCall(contract, "paused"),
+      safeCall(contract, "parameterRegistry"),
+      readPayers(contract, provider),
+    ]);
+
+    // Fetch decimals from the feeToken contract
+    let feeTokenDecimals = null;
+    if (feeToken) {
+      try {
+        const ftContract = new ethers.Contract(
+          feeToken,
+          ["function decimals() view returns (uint8)"],
+          provider,
+        );
+        feeTokenDecimals = Number(await ftContract.decimals());
+      } catch { /* leave null */ }
+    }
+
+    return {
+      feeToken, settler, feeDistributor, minimumDeposit, withdrawLockPeriod,
+      totalDeposits, totalDebt, totalWithdrawable, excess, paused, parameterRegistry,
+      feeTokenDecimals, payers,
+    };
+  },
 
   PayerReportManager: async (contract, provider) => ({
     nodeRegistry: await safeCall(contract, "nodeRegistry"),
