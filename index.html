@@ -705,9 +705,10 @@
           const lastDate = formatParamTimestamp(entry.lastChangedTimestamp);
 
           // Current value row (most recent event, index 0)
+          const history = entry.history || [];
           const currentTxLink =
-            entry.history[0]?.txHash && txBase
-              ? `<a href="${escapeHtml(txBase)}/tx/${escapeHtml(entry.history[0].txHash)}" target="_blank" rel="noopener" class="param-history-link" title="View transaction">&#8599;</a>`
+            history[0]?.txHash && txBase
+              ? `<a href="${escapeHtml(txBase)}/tx/${escapeHtml(history[0].txHash)}" target="_blank" rel="noopener" class="param-history-link" title="View transaction">&#8599;</a>`
               : "";
           const dateHtml = lastDate
             ? `<span class="param-history-meta">${lastDate}</span>`
@@ -716,8 +717,8 @@
           let valHtml = `<div class="param-history-current">${formatParamValue(entry.currentDecoded)}${dateHtml}${currentTxLink}</div>`;
 
           // Prior values (skip index 0)
-          for (let i = 1; i < entry.history.length; i++) {
-            const h = entry.history[i];
+          for (let i = 1; i < history.length; i++) {
+            const h = history[i];
             const txLink =
               h.txHash && txBase
                 ? `<a href="${escapeHtml(txBase)}/tx/${escapeHtml(h.txHash)}" target="_blank" rel="noopener" class="param-history-link" title="View transaction">&#8599;</a>`
