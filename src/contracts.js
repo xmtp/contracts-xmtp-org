@@ -247,7 +247,11 @@ async function readPayers(contract, provider) {
     // Query Deposit and UsageSettled events in parallel
     const [depositEvents, settledEvents] = await Promise.all([
       queryEventsWithFallback(contract, contract.filters.Deposit(), provider),
-      queryEventsWithFallback(contract, contract.filters.UsageSettled(), provider).catch(() => []),
+      queryEventsWithFallback(
+        contract,
+        contract.filters.UsageSettled(),
+        provider,
+      ).catch(() => []),
     ]);
 
     if (!depositEvents || depositEvents.length === 0) return [];
@@ -256,7 +260,8 @@ async function readPayers(contract, provider) {
     const depositsByPayer = {};
     for (const event of depositEvents) {
       const payer = event.args.payer;
-      depositsByPayer[payer] = (depositsByPayer[payer] ?? 0n) + event.args.amount;
+      depositsByPayer[payer] =
+        (depositsByPayer[payer] ?? 0n) + event.args.amount;
     }
 
     // Accumulate total settled per payer
@@ -286,7 +291,10 @@ async function readPayers(contract, provider) {
       const pw = pendingWithdrawals[i];
       return {
         address,
-        balance: balances[i] !== null && balances[i] !== undefined ? balances[i] : null,
+        balance:
+          balances[i] !== null && balances[i] !== undefined
+            ? balances[i]
+            : null,
         totalDeposited: depositsByPayer[address] ?? null,
         totalSettled: settledByPayer[address] ?? null,
         pendingWithdrawal: pw ? pw[0] : null,
@@ -427,8 +435,18 @@ const stateReaders = {
 
   PayerRegistry: async (contract, provider) => {
     const [
-      feeToken, settler, feeDistributor, minimumDeposit, withdrawLockPeriod,
-      totalDeposits, totalDebt, totalWithdrawable, excess, paused, parameterRegistry, payers,
+      feeToken,
+      settler,
+      feeDistributor,
+      minimumDeposit,
+      withdrawLockPeriod,
+      totalDeposits,
+      totalDebt,
+      totalWithdrawable,
+      excess,
+      paused,
+      parameterRegistry,
+      payers,
     ] = await Promise.all([
       safeCall(contract, "feeToken"),
       safeCall(contract, "settler"),
@@ -454,13 +472,25 @@ const stateReaders = {
           provider,
         );
         feeTokenDecimals = Number(await ftContract.decimals());
-      } catch { /* leave null */ }
+      } catch {
+        /* leave null */
+      }
     }
 
     return {
-      feeToken, settler, feeDistributor, minimumDeposit, withdrawLockPeriod,
-      totalDeposits, totalDebt, totalWithdrawable, excess, paused, parameterRegistry,
-      feeTokenDecimals, payers,
+      feeToken,
+      settler,
+      feeDistributor,
+      minimumDeposit,
+      withdrawLockPeriod,
+      totalDeposits,
+      totalDebt,
+      totalWithdrawable,
+      excess,
+      paused,
+      parameterRegistry,
+      feeTokenDecimals,
+      payers,
     };
   },
 
@@ -818,4 +848,7 @@ module.exports = {
   readContractDetails,
   getConfigDrift,
   getAllBalances,
+  decodeParameterValue,
+  getProvider,
+  getContract,
 };

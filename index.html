@@ -404,6 +404,102 @@
       .table-wrapper {
         overflow-x: auto;
       }
+
+      /* Parameter History tile */
+      .param-history-col-header {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        padding: 5px 18px;
+        border-bottom: 1px solid var(--border);
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .param-history-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        align-items: start;
+        padding: 10px 18px;
+        gap: 16px;
+      }
+      .param-history-row + .param-history-row {
+        border-top: 1px solid var(--border);
+      }
+      .param-history-key-col {
+        font-family: var(--mono);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-bright);
+        word-break: break-all;
+        padding-top: 1px;
+      }
+      .param-history-val-col {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .param-history-current {
+        font-family: var(--mono);
+        font-size: 14px;
+        color: var(--text-bright);
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .param-history-prior {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text-dim);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .param-history-meta {
+        font-size: 10px;
+        color: var(--text-dim);
+        opacity: 0.6;
+      }
+      .param-history-link {
+        color: var(--text-dim);
+        opacity: 0.5;
+        text-decoration: none;
+        font-size: 11px;
+        flex-shrink: 0;
+      }
+      .param-history-link:hover {
+        opacity: 1;
+        color: var(--accent);
+      }
+      .param-sort-toggle {
+        display: flex;
+        gap: 2px;
+        margin-left: auto;
+        font-size: 11px;
+        font-weight: 400;
+      }
+      .param-sort-btn {
+        padding: 2px 8px;
+        border-radius: 3px;
+        cursor: pointer;
+        color: var(--text-dim);
+        background: transparent;
+        border: 1px solid transparent;
+        font-size: 11px;
+        font-family: inherit;
+      }
+      .param-sort-btn.active {
+        color: var(--accent);
+        border-color: var(--accent);
+        background: rgba(88, 166, 255, 0.08);
+      }
+      .param-sort-btn:hover:not(.active) {
+        color: var(--text);
+        border-color: var(--border);
+      }
     </style>
   </head>
   <body>
@@ -525,7 +621,10 @@
           const d = 10n ** BigInt(decimals);
           const whole = abs / d;
           const frac = abs % d;
-          const fracStr = frac.toString().padStart(decimals, "0").replace(/0+$/, "");
+          const fracStr = frac
+            .toString()
+            .padStart(decimals, "0")
+            .replace(/0+$/, "");
           const formatted = fracStr ? `${whole}.${fracStr}` : whole.toString();
           return isNeg ? `-${formatted}` : formatted;
         } catch {
@@ -544,13 +643,167 @@
         return 0;
       }
 
-      function toggleUnsetParams(checkbox) {
-        const card = checkbox.closest(".detail-card");
-        const rows = card.querySelectorAll(
-          '.detail-row[data-param-unset="true"]',
-        );
-        for (const row of rows) {
-          row.style.display = checkbox.checked ? "none" : "";
+      // ---- Parameter History tile helpers ----
+
+      function formatParamValue(decoded) {
+        if (decoded === null || decoded === undefined) {
+          return '<span style="color:var(--text-dim)">zero / unset</span>';
+        }
+        if (typeof decoded === "boolean") {
+          return decoded
+            ? '<span style="color:var(--green)">true</span>'
+            : '<span style="color:var(--red)">false</span>';
+        }
+        const s = String(decoded);
+        if (s.startsWith("0x") && s.length === 42) {
+          // ethers.getAddress() output is always 0x + 40 hex chars — safe to pass directly
+          // validate the format before calling renderAddress to be defensive
+          if (/^0x[0-9a-fA-F]{40}$/.test(decoded)) {
+            return renderAddress(decoded, "");
+          }
+          return `<span style="font-family:var(--mono)">${escapeHtml(String(decoded))}</span>`;
+        }
+        return `<span style="font-family:var(--mono)">${escapeHtml(s)}</span>`;
+      }
+
+      function formatParamTimestamp(ts) {
+        if (!ts) return "";
+        try {
+          return new Date(ts * 1000).toISOString().slice(0, 10);
+        } catch {
+          return "";
+        }
+      }
+
+      function renderParameterHistoryContent(
+        data,
+        tileBodyEl,
+        explorerUrl,
+        currentSort,
+      ) {
+        if (!data.keys || data.keys.length === 0) {
+          tileBodyEl.innerHTML = `<div style="padding:14px 18px;color:var(--text-dim);font-size:13px">No ParameterSet events found.</div>`;
+          return;
+        }
+
+        const sorted = [...data.keys];
+        if (currentSort === "recent") {
+          sorted.sort(
+            (a, b) => (b.lastChangedBlock || 0) - (a.lastChangedBlock || 0),
+          );
+        } else {
+          sorted.sort((a, b) => a.key.localeCompare(b.key));
+        }
+
+        // Build the explorer tx base URL (strip /address/... suffix if present)
+        const txBase = explorerUrl
+          ? explorerUrl.replace(/\/address\/[^/]*$/, "")
+          : "";
+
+        let html = `<div class="param-history-col-header"><span>Key</span><span>Value</span></div>`;
+        for (const entry of sorted) {
+          const lastDate = formatParamTimestamp(entry.lastChangedTimestamp);
+
+          // Current value row (most recent event, index 0)
+          const currentTxLink =
+            entry.history[0]?.txHash && txBase
+              ? `<a href="${escapeHtml(txBase)}/tx/${escapeHtml(entry.history[0].txHash)}" target="_blank" rel="noopener" class="param-history-link" title="View transaction">&#8599;</a>`
+              : "";
+          const dateHtml = lastDate
+            ? `<span class="param-history-meta">${lastDate}</span>`
+            : "";
+
+          let valHtml = `<div class="param-history-current">${formatParamValue(entry.currentDecoded)}${dateHtml}${currentTxLink}</div>`;
+
+          // Prior values (skip index 0)
+          for (let i = 1; i < entry.history.length; i++) {
+            const h = entry.history[i];
+            const txLink =
+              h.txHash && txBase
+                ? `<a href="${escapeHtml(txBase)}/tx/${escapeHtml(h.txHash)}" target="_blank" rel="noopener" class="param-history-link" title="View transaction">&#8599;</a>`
+                : "";
+            const hDate = formatParamTimestamp(h.timestamp);
+            const blockStr = `block ${h.block}`;
+            valHtml += `<div class="param-history-prior">${formatParamValue(h.decoded)}<span class="param-history-meta">${escapeHtml(blockStr)}${hDate ? " · " + hDate : ""}</span>${txLink}</div>`;
+          }
+
+          html += `<div class="param-history-row">
+            <div class="param-history-key-col">${escapeHtml(entry.key)}</div>
+            <div class="param-history-val-col">${valHtml}</div>
+          </div>`;
+        }
+
+        tileBodyEl.innerHTML = html;
+      }
+
+      function sortParameterHistory(tileEl, mode) {
+        // Update button states
+        tileEl.querySelectorAll(".param-sort-btn").forEach((btn) => {
+          btn.classList.toggle("active", btn.dataset.sort === mode);
+        });
+        // Re-render body using cached data
+        const cachedData = tileEl._paramHistoryData;
+        const explorerUrl = tileEl._paramHistoryExplorerUrl;
+        if (cachedData) {
+          renderParameterHistoryContent(
+            cachedData,
+            tileEl.querySelector(".detail-card-body"),
+            explorerUrl,
+            mode,
+          );
+        }
+      }
+
+      async function loadParameterHistory(data, container) {
+        const tileEl = container.querySelector("#param-history-tile");
+        if (!tileEl) return;
+
+        const env = document.getElementById("inspector-env").value;
+        const contractVal = document.getElementById("inspector-contract").value;
+        const [chain, name] = contractVal.split(":");
+
+        try {
+          const result = await fetch(
+            `/api/events/${env}/${chain}/${name}`,
+          ).then((r) => r.json());
+
+          // Cache on element for re-sorting without re-fetch
+          tileEl._paramHistoryData = result;
+          tileEl._paramHistoryExplorerUrl =
+            result.explorerUrl || data.explorer || "";
+
+          // Update header count
+          const countEl = tileEl.querySelector(".param-history-count");
+          if (countEl && result.keys) {
+            countEl.textContent = `${result.keys.length} key${result.keys.length !== 1 ? "s" : ""}, ${result.totalEvents} event${result.totalEvents !== 1 ? "s" : ""}`;
+          }
+
+          const bodyEl = tileEl.querySelector(".detail-card-body");
+
+          if (result.error && !result.keys) {
+            const link = result.explorerUrl
+              ? ` <a href="${escapeHtml(result.explorerUrl)}" target="_blank" rel="noopener" style="color:var(--accent)">View on explorer &#8599;</a>`
+              : "";
+            bodyEl.innerHTML = `<div style="padding:14px 18px;font-size:13px;color:var(--amber)">&#9888; Cannot retrieve events: ${escapeHtml(result.error)}.${link}</div>`;
+            return;
+          }
+
+          renderParameterHistoryContent(
+            result,
+            bodyEl,
+            tileEl._paramHistoryExplorerUrl,
+            "alpha",
+          );
+        } catch (err) {
+          const bodyEl = tileEl.querySelector(".detail-card-body");
+          const explorerUrl =
+            data.explorer && data.address
+              ? `${data.explorer}/address/${data.address}`
+              : null;
+          const link = explorerUrl
+            ? ` <a href="${escapeHtml(explorerUrl)}" target="_blank" rel="noopener" style="color:var(--accent)">View on explorer &#8599;</a>`
+            : "";
+          bodyEl.innerHTML = `<div style="padding:14px 18px;font-size:13px;color:var(--amber)">&#9888; Cannot retrieve events: ${escapeHtml(err.message)}.${link}</div>`;
         }
       }
 
@@ -880,6 +1133,8 @@
     </div>
   </div>`;
 
+        let hasParameterHistory = false;
+
         if (data.state) {
           // Separate special fields from simple scalar fields
           const {
@@ -898,9 +1153,10 @@
             ...simpleState
           } = data.state;
 
-          const fnBadge = explorer && data.address
-            ? `<a href="${explorer}/address/${data.address}#readProxyContract" target="_blank" rel="noopener" style="font-size:10px;color:var(--text-dim);font-family:var(--mono);margin-left:6px;opacity:0.6;text-decoration:none" title="Direct contract view call">(fn)</a>`
-            : `<span style="font-size:10px;color:var(--text-dim);font-family:var(--mono);margin-left:6px;opacity:0.6">(fn)</span>`;
+          const fnBadge =
+            explorer && data.address
+              ? `<a href="${explorer}/address/${data.address}#readProxyContract" target="_blank" rel="noopener" style="font-size:10px;color:var(--text-dim);font-family:var(--mono);margin-left:6px;opacity:0.6;text-decoration:none" title="Direct contract view call">(fn)</a>`
+              : `<span style="font-size:10px;color:var(--text-dim);font-family:var(--mono);margin-left:6px;opacity:0.6">(fn)</span>`;
           const calcBadge = `<span style="font-size:10px;color:var(--text-dim);font-family:var(--mono);margin-left:6px;opacity:0.6" title="Derived from event history">(calc)</span>`;
 
           // Simple state fields
@@ -1014,30 +1270,47 @@
           }
 
           // Registry Overview card (PayerRegistry global financials)
-          if (totalDeposits !== undefined || totalDebt !== undefined || excess !== undefined) {
-            const decimals = feeTokenDecimals !== undefined && feeTokenDecimals !== null ? parseInt(feeTokenDecimals) : null;
+          if (
+            totalDeposits !== undefined ||
+            totalDebt !== undefined ||
+            excess !== undefined
+          ) {
+            const decimals =
+              feeTokenDecimals !== undefined && feeTokenDecimals !== null
+                ? parseInt(feeTokenDecimals)
+                : null;
             const symbol = decimals !== null ? " xUSD" : "";
             const fmtToken = (val, color) => {
               const s = formatTokenAmount(val, decimals);
-              if (s === null) return '<span style="color:var(--text-dim)">-</span>';
+              if (s === null)
+                return '<span style="color:var(--text-dim)">-</span>';
               const style = color ? `color:${color};` : "";
               return `<span style="font-family:var(--mono);font-size:13px;${style}">${escapeHtml(s)}${symbol}</span>`;
             };
-            const lockPeriodDisplay = withdrawLockPeriod !== undefined && withdrawLockPeriod !== null
-              ? (() => {
-                  const secs = parseInt(withdrawLockPeriod);
-                  const days = Math.floor(secs / 86400);
-                  const hrs = Math.floor((secs % 86400) / 3600);
-                  const parts = [];
-                  if (days) parts.push(`${days}d`);
-                  if (hrs) parts.push(`${hrs}h`);
-                  if (!parts.length) parts.push(`${secs}s`);
-                  return `<span style="font-family:var(--mono);font-size:13px">${escapeHtml(parts.join(" "))} <span style="color:var(--text-dim)">(${escapeHtml(withdrawLockPeriod.toString())}s)</span></span>`;
-                })()
-              : '<span style="color:var(--text-dim)">-</span>';
+            const lockPeriodDisplay =
+              withdrawLockPeriod !== undefined && withdrawLockPeriod !== null
+                ? (() => {
+                    const secs = parseInt(withdrawLockPeriod);
+                    const days = Math.floor(secs / 86400);
+                    const hrs = Math.floor((secs % 86400) / 3600);
+                    const parts = [];
+                    if (days) parts.push(`${days}d`);
+                    if (hrs) parts.push(`${hrs}h`);
+                    if (!parts.length) parts.push(`${secs}s`);
+                    return `<span style="font-family:var(--mono);font-size:13px">${escapeHtml(parts.join(" "))} <span style="color:var(--text-dim)">(${escapeHtml(withdrawLockPeriod.toString())}s)</span></span>`;
+                  })()
+                : '<span style="color:var(--text-dim)">-</span>';
 
-            const tdRaw = totalDeposits !== null && totalDeposits !== undefined ? BigInt(totalDeposits) : null;
-            const tdColor = tdRaw !== null ? (tdRaw < 0n ? "var(--red)" : "var(--green)") : null;
+            const tdRaw =
+              totalDeposits !== null && totalDeposits !== undefined
+                ? BigInt(totalDeposits)
+                : null;
+            const tdColor =
+              tdRaw !== null
+                ? tdRaw < 0n
+                  ? "var(--red)"
+                  : "var(--green)"
+                : null;
 
             html += `<div class="detail-card">
       <div class="detail-card-header">Key</div>
@@ -1070,11 +1343,16 @@
 
           // Payers table
           if (payers && payers.length > 0) {
-            const payerDecimals = feeTokenDecimals !== undefined && feeTokenDecimals !== null ? parseInt(feeTokenDecimals) : null;
+            const payerDecimals =
+              feeTokenDecimals !== undefined && feeTokenDecimals !== null
+                ? parseInt(feeTokenDecimals)
+                : null;
             const sym = payerDecimals !== null ? " xUSD" : "";
             const fmtAmt = (val) => {
               const s = formatTokenAmount(val, payerDecimals);
-              return s !== null ? `<span style="font-family:var(--mono);font-size:12px">${escapeHtml(s)}${sym}</span>` : '<span style="color:var(--text-dim)">-</span>';
+              return s !== null
+                ? `<span style="font-family:var(--mono);font-size:12px">${escapeHtml(s)}${sym}</span>`
+                : '<span style="color:var(--text-dim)">-</span>';
             };
             const sortedPayers = [...payers].sort((a, b) => {
               const ba = BigInt(a.balance ?? "0");
@@ -1103,18 +1381,26 @@
           </tr></thead><tbody>`;
 
             for (const p of sortedPayers) {
-              const bal = p.balance !== null && p.balance !== undefined ? BigInt(p.balance) : null;
+              const bal =
+                p.balance !== null && p.balance !== undefined
+                  ? BigInt(p.balance)
+                  : null;
               const isDebt = bal !== null && bal < 0n;
               const balStr = formatTokenAmount(p.balance, payerDecimals);
-              const balDisplay = balStr !== null
-                ? `<span style="font-family:var(--mono);font-size:12px;color:${isDebt ? "var(--red)" : "var(--green)"}">${escapeHtml(balStr)}${sym}</span>`
-                : '<span style="color:var(--text-dim)">-</span>';
+              const balDisplay =
+                balStr !== null
+                  ? `<span style="font-family:var(--mono);font-size:12px;color:${isDebt ? "var(--red)" : "var(--green)"}">${escapeHtml(balStr)}${sym}</span>`
+                  : '<span style="color:var(--text-dim)">-</span>';
 
-              const hasPending = p.pendingWithdrawal && BigInt(p.pendingWithdrawal) > 0n;
-              const pendingDisplay = hasPending ? fmtAmt(p.pendingWithdrawal) : '<span style="color:var(--text-dim)">-</span>';
-              const withdrawableDisplay = hasPending && p.withdrawableTimestamp
-                ? `<span style="font-size:12px">${new Date(p.withdrawableTimestamp * 1000).toISOString().replace("T", " ").replace(".000Z", " UTC")}</span>`
+              const hasPending =
+                p.pendingWithdrawal && BigInt(p.pendingWithdrawal) > 0n;
+              const pendingDisplay = hasPending
+                ? fmtAmt(p.pendingWithdrawal)
                 : '<span style="color:var(--text-dim)">-</span>';
+              const withdrawableDisplay =
+                hasPending && p.withdrawableTimestamp
+                  ? `<span style="font-size:12px">${new Date(p.withdrawableTimestamp * 1000).toISOString().replace("T", " ").replace(".000Z", " UTC")}</span>`
+                  : '<span style="color:var(--text-dim)">-</span>';
 
               html += `<tr>
             <td>${renderAddress(p.address, explorer)}</td>
@@ -1127,7 +1413,11 @@
             }
 
             html += `</tbody></table></div></div></div></div>`;
-          } else if (payers !== undefined && payers !== null && payers.length === 0) {
+          } else if (
+            payers !== undefined &&
+            payers !== null &&
+            payers.length === 0
+          ) {
             html += `<div class="detail-card">
       <div class="detail-card-header">Payers</div>
       <div class="detail-card-body">
@@ -1135,39 +1425,31 @@
       </div></div>`;
           }
 
-          // Known parameter values
-          if (knownParameters) {
-            const paramEntries = Object.entries(knownParameters);
-            const setCount = paramEntries.filter(
-              ([, val]) => val !== null,
-            ).length;
-            const paramCardId = `param-card-${Date.now()}`;
-            html += `<div class="detail-card">
-      <div class="detail-card-header">Known Parameter Values <span style="color:var(--text-dim);font-weight:400;font-size:12px">${setCount} of ${paramEntries.length} set</span>
-        <label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:400;color:var(--text-dim);cursor:pointer;user-select:none">
-          <input type="checkbox" id="${paramCardId}-filter" onchange="toggleUnsetParams(this)" style="cursor:pointer;accent-color:var(--accent)">
-          Only show keys with values
-        </label>
+          // Parameter history tile (async — replaces "Known Parameter Values")
+          if (knownParameters !== undefined) {
+            hasParameterHistory = true;
+            html += `<div class="detail-card" id="param-history-tile">
+      <div class="detail-card-header">
+        Parameter History
+        <span class="param-history-count" style="color:var(--text-dim);font-weight:400;font-size:12px;margin-left:6px"></span>
+        <div class="param-sort-toggle">
+          <button class="param-sort-btn active" data-sort="alpha" onclick="sortParameterHistory(this.closest('#param-history-tile'),'alpha')">Key A→Z</button>
+          <button class="param-sort-btn" data-sort="recent" onclick="sortParameterHistory(this.closest('#param-history-tile'),'recent')">Recently Changed</button>
+        </div>
       </div>
-      <div class="detail-card-body" id="${paramCardId}-body">
-        <div style="padding:10px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--amber);background:rgba(210,153,34,0.06)">
-          &#9888; These are known parameter keys from code &mdash; not guaranteed to be ALL values in the registry.
-        </div>`;
-
-            for (const [key, val] of paramEntries) {
-              const rendered =
-                val === null
-                  ? '<span style="color:var(--text-dim)">not set</span>'
-                  : formatBigValue(val);
-              const unsetAttr = val === null ? ' data-param-unset="true"' : "";
-              html += `<div class="detail-row"${unsetAttr}><div class="detail-key" style="width:380px;min-width:380px;font-family:var(--mono);font-size:11px">${escapeHtml(key)}</div><div class="detail-val">${rendered}</div></div>`;
-            }
-
-            html += `</div></div>`;
+      <div class="detail-card-body">
+        <div class="loading" style="padding:20px 18px"><div class="spinner"></div>Loading parameter history…</div>
+      </div>
+    </div>`;
           }
         }
 
         container.innerHTML = html;
+
+        // Kick off async parameter history load if applicable
+        if (hasParameterHistory) {
+          loadParameterHistory(data, container);
+        }
       }
 
       function navigateToContract(env, chain, name) {
