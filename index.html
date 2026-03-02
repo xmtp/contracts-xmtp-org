@@ -1112,6 +1112,8 @@
     </div>
   </div>`;
 
+        let hasParameterHistory = false;
+
         if (data.state) {
           // Separate special fields from simple scalar fields
           const {
@@ -1404,6 +1406,7 @@
 
           // Parameter history tile (async — replaces "Known Parameter Values")
           if (knownParameters !== undefined) {
+            hasParameterHistory = true;
             html += `<div class="detail-card" id="param-history-tile">
       <div class="detail-card-header">
         Parameter History
@@ -1423,7 +1426,7 @@
         container.innerHTML = html;
 
         // Kick off async parameter history load if applicable
-        if (knownParameters !== undefined) {
+        if (hasParameterHistory) {
           loadParameterHistory(data, container);
         }
       }
