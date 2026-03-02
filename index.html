@@ -475,7 +475,7 @@
       .param-sort-btn.active {
         color: var(--accent);
         border-color: var(--accent);
-        background: rgba(88,166,255,0.08);
+        background: rgba(88, 166, 255, 0.08);
       }
       .param-sort-btn:hover:not(.active) {
         color: var(--text);
@@ -602,7 +602,10 @@
           const d = 10n ** BigInt(decimals);
           const whole = abs / d;
           const frac = abs % d;
-          const fracStr = frac.toString().padStart(decimals, "0").replace(/0+$/, "");
+          const fracStr = frac
+            .toString()
+            .padStart(decimals, "0")
+            .replace(/0+$/, "");
           const formatted = fracStr ? `${whole}.${fracStr}` : whole.toString();
           return isNeg ? `-${formatted}` : formatted;
         } catch {
@@ -620,7 +623,6 @@
         }
         return 0;
       }
-
 
       // ---- Parameter History tile helpers ----
 
@@ -654,7 +656,12 @@
         }
       }
 
-      function renderParameterHistoryContent(data, tileBodyEl, explorerUrl, currentSort) {
+      function renderParameterHistoryContent(
+        data,
+        tileBodyEl,
+        explorerUrl,
+        currentSort,
+      ) {
         if (!data.keys || data.keys.length === 0) {
           tileBodyEl.innerHTML = `<div style="padding:14px 18px;color:var(--text-dim);font-size:13px">No ParameterSet events found.</div>`;
           return;
@@ -662,13 +669,17 @@
 
         const sorted = [...data.keys];
         if (currentSort === "recent") {
-          sorted.sort((a, b) => (b.lastChangedBlock || 0) - (a.lastChangedBlock || 0));
+          sorted.sort(
+            (a, b) => (b.lastChangedBlock || 0) - (a.lastChangedBlock || 0),
+          );
         } else {
           sorted.sort((a, b) => a.key.localeCompare(b.key));
         }
 
         // Build the explorer tx base URL (strip /address/... suffix if present)
-        const txBase = explorerUrl ? explorerUrl.replace(/\/address\/[^/]*$/, "") : "";
+        const txBase = explorerUrl
+          ? explorerUrl.replace(/\/address\/[^/]*$/, "")
+          : "";
 
         let html = "";
         for (const entry of sorted) {
@@ -677,9 +688,10 @@
           html += `<div class="param-history-key-name">${escapeHtml(entry.key)}</div>`;
 
           // Current value row (most recent event, index 0)
-          const currentTxLink = entry.history[0]?.txHash && txBase
-            ? `<a href="${escapeHtml(txBase)}/tx/${escapeHtml(entry.history[0].txHash)}" target="_blank" rel="noopener" class="param-history-link" title="View transaction">&#8599;</a>`
-            : "";
+          const currentTxLink =
+            entry.history[0]?.txHash && txBase
+              ? `<a href="${escapeHtml(txBase)}/tx/${escapeHtml(entry.history[0].txHash)}" target="_blank" rel="noopener" class="param-history-link" title="View transaction">&#8599;</a>`
+              : "";
           const dateHtml = lastDate
             ? `<span class="param-history-meta">${lastDate}</span>`
             : "";
@@ -688,9 +700,10 @@
           // Prior values (skip index 0)
           for (let i = 1; i < entry.history.length; i++) {
             const h = entry.history[i];
-            const txLink = h.txHash && txBase
-              ? `<a href="${escapeHtml(txBase)}/tx/${escapeHtml(h.txHash)}" target="_blank" rel="noopener" class="param-history-link" title="View transaction">&#8599;</a>`
-              : "";
+            const txLink =
+              h.txHash && txBase
+                ? `<a href="${escapeHtml(txBase)}/tx/${escapeHtml(h.txHash)}" target="_blank" rel="noopener" class="param-history-link" title="View transaction">&#8599;</a>`
+                : "";
             const hDate = formatParamTimestamp(h.timestamp);
             const blockStr = `block ${h.block}`;
             html += `<div class="param-history-prior">${formatParamValue(h.decoded)}<span class="param-history-meta">${escapeHtml(blockStr)}${hDate ? " · " + hDate : ""}</span>${txLink}</div>`;
@@ -729,13 +742,14 @@
         const [chain, name] = contractVal.split(":");
 
         try {
-          const result = await fetch(`/api/events/${env}/${chain}/${name}`).then(
-            (r) => r.json(),
-          );
+          const result = await fetch(
+            `/api/events/${env}/${chain}/${name}`,
+          ).then((r) => r.json());
 
           // Cache on element for re-sorting without re-fetch
           tileEl._paramHistoryData = result;
-          tileEl._paramHistoryExplorerUrl = result.explorerUrl || data.explorer || "";
+          tileEl._paramHistoryExplorerUrl =
+            result.explorerUrl || data.explorer || "";
 
           // Update header count
           const countEl = tileEl.querySelector(".param-history-count");
@@ -761,9 +775,10 @@
           );
         } catch (err) {
           const bodyEl = tileEl.querySelector(".detail-card-body");
-          const explorerUrl = data.explorer && data.address
-            ? `${data.explorer}/address/${data.address}`
-            : null;
+          const explorerUrl =
+            data.explorer && data.address
+              ? `${data.explorer}/address/${data.address}`
+              : null;
           const link = explorerUrl
             ? ` <a href="${escapeHtml(explorerUrl)}" target="_blank" rel="noopener" style="color:var(--accent)">View on explorer &#8599;</a>`
             : "";
@@ -1115,9 +1130,10 @@
             ...simpleState
           } = data.state;
 
-          const fnBadge = explorer && data.address
-            ? `<a href="${explorer}/address/${data.address}#readProxyContract" target="_blank" rel="noopener" style="font-size:10px;color:var(--text-dim);font-family:var(--mono);margin-left:6px;opacity:0.6;text-decoration:none" title="Direct contract view call">(fn)</a>`
-            : `<span style="font-size:10px;color:var(--text-dim);font-family:var(--mono);margin-left:6px;opacity:0.6">(fn)</span>`;
+          const fnBadge =
+            explorer && data.address
+              ? `<a href="${explorer}/address/${data.address}#readProxyContract" target="_blank" rel="noopener" style="font-size:10px;color:var(--text-dim);font-family:var(--mono);margin-left:6px;opacity:0.6;text-decoration:none" title="Direct contract view call">(fn)</a>`
+              : `<span style="font-size:10px;color:var(--text-dim);font-family:var(--mono);margin-left:6px;opacity:0.6">(fn)</span>`;
           const calcBadge = `<span style="font-size:10px;color:var(--text-dim);font-family:var(--mono);margin-left:6px;opacity:0.6" title="Derived from event history">(calc)</span>`;
 
           // Simple state fields
@@ -1231,30 +1247,47 @@
           }
 
           // Registry Overview card (PayerRegistry global financials)
-          if (totalDeposits !== undefined || totalDebt !== undefined || excess !== undefined) {
-            const decimals = feeTokenDecimals !== undefined && feeTokenDecimals !== null ? parseInt(feeTokenDecimals) : null;
+          if (
+            totalDeposits !== undefined ||
+            totalDebt !== undefined ||
+            excess !== undefined
+          ) {
+            const decimals =
+              feeTokenDecimals !== undefined && feeTokenDecimals !== null
+                ? parseInt(feeTokenDecimals)
+                : null;
             const symbol = decimals !== null ? " xUSD" : "";
             const fmtToken = (val, color) => {
               const s = formatTokenAmount(val, decimals);
-              if (s === null) return '<span style="color:var(--text-dim)">-</span>';
+              if (s === null)
+                return '<span style="color:var(--text-dim)">-</span>';
               const style = color ? `color:${color};` : "";
               return `<span style="font-family:var(--mono);font-size:13px;${style}">${escapeHtml(s)}${symbol}</span>`;
             };
-            const lockPeriodDisplay = withdrawLockPeriod !== undefined && withdrawLockPeriod !== null
-              ? (() => {
-                  const secs = parseInt(withdrawLockPeriod);
-                  const days = Math.floor(secs / 86400);
-                  const hrs = Math.floor((secs % 86400) / 3600);
-                  const parts = [];
-                  if (days) parts.push(`${days}d`);
-                  if (hrs) parts.push(`${hrs}h`);
-                  if (!parts.length) parts.push(`${secs}s`);
-                  return `<span style="font-family:var(--mono);font-size:13px">${escapeHtml(parts.join(" "))} <span style="color:var(--text-dim)">(${escapeHtml(withdrawLockPeriod.toString())}s)</span></span>`;
-                })()
-              : '<span style="color:var(--text-dim)">-</span>';
+            const lockPeriodDisplay =
+              withdrawLockPeriod !== undefined && withdrawLockPeriod !== null
+                ? (() => {
+                    const secs = parseInt(withdrawLockPeriod);
+                    const days = Math.floor(secs / 86400);
+                    const hrs = Math.floor((secs % 86400) / 3600);
+                    const parts = [];
+                    if (days) parts.push(`${days}d`);
+                    if (hrs) parts.push(`${hrs}h`);
+                    if (!parts.length) parts.push(`${secs}s`);
+                    return `<span style="font-family:var(--mono);font-size:13px">${escapeHtml(parts.join(" "))} <span style="color:var(--text-dim)">(${escapeHtml(withdrawLockPeriod.toString())}s)</span></span>`;
+                  })()
+                : '<span style="color:var(--text-dim)">-</span>';
 
-            const tdRaw = totalDeposits !== null && totalDeposits !== undefined ? BigInt(totalDeposits) : null;
-            const tdColor = tdRaw !== null ? (tdRaw < 0n ? "var(--red)" : "var(--green)") : null;
+            const tdRaw =
+              totalDeposits !== null && totalDeposits !== undefined
+                ? BigInt(totalDeposits)
+                : null;
+            const tdColor =
+              tdRaw !== null
+                ? tdRaw < 0n
+                  ? "var(--red)"
+                  : "var(--green)"
+                : null;
 
             html += `<div class="detail-card">
       <div class="detail-card-header">Key</div>
@@ -1287,11 +1320,16 @@
 
           // Payers table
           if (payers && payers.length > 0) {
-            const payerDecimals = feeTokenDecimals !== undefined && feeTokenDecimals !== null ? parseInt(feeTokenDecimals) : null;
+            const payerDecimals =
+              feeTokenDecimals !== undefined && feeTokenDecimals !== null
+                ? parseInt(feeTokenDecimals)
+                : null;
             const sym = payerDecimals !== null ? " xUSD" : "";
             const fmtAmt = (val) => {
               const s = formatTokenAmount(val, payerDecimals);
-              return s !== null ? `<span style="font-family:var(--mono);font-size:12px">${escapeHtml(s)}${sym}</span>` : '<span style="color:var(--text-dim)">-</span>';
+              return s !== null
+                ? `<span style="font-family:var(--mono);font-size:12px">${escapeHtml(s)}${sym}</span>`
+                : '<span style="color:var(--text-dim)">-</span>';
             };
             const sortedPayers = [...payers].sort((a, b) => {
               const ba = BigInt(a.balance ?? "0");
@@ -1320,18 +1358,26 @@
           </tr></thead><tbody>`;
 
             for (const p of sortedPayers) {
-              const bal = p.balance !== null && p.balance !== undefined ? BigInt(p.balance) : null;
+              const bal =
+                p.balance !== null && p.balance !== undefined
+                  ? BigInt(p.balance)
+                  : null;
               const isDebt = bal !== null && bal < 0n;
               const balStr = formatTokenAmount(p.balance, payerDecimals);
-              const balDisplay = balStr !== null
-                ? `<span style="font-family:var(--mono);font-size:12px;color:${isDebt ? "var(--red)" : "var(--green)"}">${escapeHtml(balStr)}${sym}</span>`
-                : '<span style="color:var(--text-dim)">-</span>';
+              const balDisplay =
+                balStr !== null
+                  ? `<span style="font-family:var(--mono);font-size:12px;color:${isDebt ? "var(--red)" : "var(--green)"}">${escapeHtml(balStr)}${sym}</span>`
+                  : '<span style="color:var(--text-dim)">-</span>';
 
-              const hasPending = p.pendingWithdrawal && BigInt(p.pendingWithdrawal) > 0n;
-              const pendingDisplay = hasPending ? fmtAmt(p.pendingWithdrawal) : '<span style="color:var(--text-dim)">-</span>';
-              const withdrawableDisplay = hasPending && p.withdrawableTimestamp
-                ? `<span style="font-size:12px">${new Date(p.withdrawableTimestamp * 1000).toISOString().replace("T", " ").replace(".000Z", " UTC")}</span>`
+              const hasPending =
+                p.pendingWithdrawal && BigInt(p.pendingWithdrawal) > 0n;
+              const pendingDisplay = hasPending
+                ? fmtAmt(p.pendingWithdrawal)
                 : '<span style="color:var(--text-dim)">-</span>';
+              const withdrawableDisplay =
+                hasPending && p.withdrawableTimestamp
+                  ? `<span style="font-size:12px">${new Date(p.withdrawableTimestamp * 1000).toISOString().replace("T", " ").replace(".000Z", " UTC")}</span>`
+                  : '<span style="color:var(--text-dim)">-</span>';
 
               html += `<tr>
             <td>${renderAddress(p.address, explorer)}</td>
@@ -1344,7 +1390,11 @@
             }
 
             html += `</tbody></table></div></div></div></div>`;
-          } else if (payers !== undefined && payers !== null && payers.length === 0) {
+          } else if (
+            payers !== undefined &&
+            payers !== null &&
+            payers.length === 0
+          ) {
             html += `<div class="detail-card">
       <div class="detail-card-header">Payers</div>
       <div class="detail-card-body">

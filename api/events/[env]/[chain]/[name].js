@@ -65,9 +65,8 @@ module.exports = async function handler(req, res) {
 
   // Build explorer URL regardless of whether RPC succeeds
   const explorerBase = EXPLORERS[env]?.[chain];
-  const explorerUrl = address && explorerBase
-    ? `${explorerBase}/address/${address}`
-    : null;
+  const explorerUrl =
+    address && explorerBase ? `${explorerBase}/address/${address}` : null;
 
   if (!address) {
     return res.status(200).json({
@@ -127,7 +126,7 @@ module.exports = async function handler(req, res) {
     const byKey = {};
     for (const event of events) {
       const key = event.args?.key;
-      if (!key) continue;  // skip malformed events
+      if (!key) continue; // skip malformed events
       const rawValue = event.args.value;
       const blockNumber = event.blockNumber;
       const timestamp = blockTimestamps[blockNumber] ?? null;
@@ -170,7 +169,10 @@ module.exports = async function handler(req, res) {
       error: null,
     });
   } catch (err) {
-    console.error(`Error fetching ParameterSet events for ${name} on ${env}/${chain}:`, err);
+    console.error(
+      `Error fetching ParameterSet events for ${name} on ${env}/${chain}:`,
+      err,
+    );
     return res.status(200).json({
       keys: null,
       totalEvents: 0,
