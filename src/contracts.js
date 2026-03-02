@@ -818,4 +818,7 @@ module.exports = {
   readContractDetails,
   getConfigDrift,
   getAllBalances,
+  decodeParameterValue,
+  getProvider,
+  getContract,
 };
