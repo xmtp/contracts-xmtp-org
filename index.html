@@ -631,6 +631,150 @@
         }
       }
 
+      // ---- Parameter History tile helpers ----
+
+      function formatParamValue(decoded) {
+        if (decoded === null || decoded === undefined) {
+          return '<span style="color:var(--text-dim)">zero / unset</span>';
+        }
+        if (typeof decoded === "boolean") {
+          return decoded
+            ? '<span style="color:var(--green)">true</span>'
+            : '<span style="color:var(--red)">false</span>';
+        }
+        const s = String(decoded);
+        if (s.startsWith("0x") && s.length === 42) {
+          return renderAddress(decoded, "");
+        }
+        return `<span style="font-family:var(--mono)">${escapeHtml(s)}</span>`;
+      }
+
+      function formatParamTimestamp(ts) {
+        if (!ts) return "";
+        try {
+          return new Date(ts * 1000).toISOString().slice(0, 10);
+        } catch {
+          return "";
+        }
+      }
+
+      function renderParameterHistoryContent(data, tileBodyEl, explorerUrl, currentSort) {
+        if (!data.keys || data.keys.length === 0) {
+          tileBodyEl.innerHTML = `<div style="padding:14px 18px;color:var(--text-dim);font-size:13px">No ParameterSet events found.</div>`;
+          return;
+        }
+
+        const sorted = [...data.keys];
+        if (currentSort === "recent") {
+          sorted.sort((a, b) => (b.lastChangedBlock || 0) - (a.lastChangedBlock || 0));
+        } else {
+          sorted.sort((a, b) => a.key.localeCompare(b.key));
+        }
+
+        // Build the explorer tx base URL (strip /address/... suffix if present)
+        const txBase = explorerUrl ? explorerUrl.replace(/\/address\/[^/]*$/, "") : "";
+
+        let html = "";
+        for (const entry of sorted) {
+          const lastDate = formatParamTimestamp(entry.lastChangedTimestamp);
+          html += `<div class="param-history-key">`;
+          html += `<div class="param-history-key-name">${escapeHtml(entry.key)}</div>`;
+
+          // Current value row (most recent event, index 0)
+          const currentTxLink = entry.history[0]?.txHash && txBase
+            ? `<a href="${txBase}/tx/${entry.history[0].txHash}" target="_blank" rel="noopener" class="param-history-link" title="View transaction">&#8599;</a>`
+            : "";
+          const dateHtml = lastDate
+            ? `<span class="param-history-meta">${lastDate}</span>`
+            : "";
+          html += `<div class="param-history-current">${formatParamValue(entry.currentDecoded)}${dateHtml}${currentTxLink}</div>`;
+
+          // Prior values (skip index 0)
+          for (let i = 1; i < entry.history.length; i++) {
+            const h = entry.history[i];
+            const txLink = h.txHash && txBase
+              ? `<a href="${txBase}/tx/${h.txHash}" target="_blank" rel="noopener" class="param-history-link" title="View transaction">&#8599;</a>`
+              : "";
+            const hDate = formatParamTimestamp(h.timestamp);
+            const blockStr = `block ${h.block}`;
+            html += `<div class="param-history-prior">${formatParamValue(h.decoded)}<span class="param-history-meta">${escapeHtml(blockStr)}${hDate ? " · " + hDate : ""}</span>${txLink}</div>`;
+          }
+
+          html += `</div>`;
+        }
+
+        tileBodyEl.innerHTML = html;
+      }
+
+      function sortParameterHistory(tileEl, mode) {
+        // Update button states
+        tileEl.querySelectorAll(".param-sort-btn").forEach((btn) => {
+          btn.classList.toggle("active", btn.dataset.sort === mode);
+        });
+        // Re-render body using cached data
+        const cachedData = tileEl._paramHistoryData;
+        const explorerUrl = tileEl._paramHistoryExplorerUrl;
+        if (cachedData) {
+          renderParameterHistoryContent(
+            cachedData,
+            tileEl.querySelector(".detail-card-body"),
+            explorerUrl,
+            mode,
+          );
+        }
+      }
+
+      async function loadParameterHistory(data, container) {
+        const tileEl = container.querySelector("#param-history-tile");
+        if (!tileEl) return;
+
+        const env = document.getElementById("inspector-env").value;
+        const contractVal = document.getElementById("inspector-contract").value;
+        const [chain, name] = contractVal.split(":");
+
+        try {
+          const result = await fetch(`/api/events/${env}/${chain}/${name}`).then(
+            (r) => r.json(),
+          );
+
+          // Cache on element for re-sorting without re-fetch
+          tileEl._paramHistoryData = result;
+          tileEl._paramHistoryExplorerUrl = result.explorerUrl || data.explorer || "";
+
+          // Update header count
+          const countEl = tileEl.querySelector(".param-history-count");
+          if (countEl && result.keys) {
+            countEl.textContent = `${result.keys.length} key${result.keys.length !== 1 ? "s" : ""}, ${result.totalEvents} event${result.totalEvents !== 1 ? "s" : ""}`;
+          }
+
+          const bodyEl = tileEl.querySelector(".detail-card-body");
+
+          if (result.error && !result.keys) {
+            const link = result.explorerUrl
+              ? ` <a href="${escapeHtml(result.explorerUrl)}" target="_blank" rel="noopener" style="color:var(--accent)">View on explorer &#8599;</a>`
+              : "";
+            bodyEl.innerHTML = `<div style="padding:14px 18px;font-size:13px;color:var(--amber)">&#9888; Cannot retrieve events: ${escapeHtml(result.error)}.${link}</div>`;
+            return;
+          }
+
+          renderParameterHistoryContent(
+            result,
+            bodyEl,
+            tileEl._paramHistoryExplorerUrl,
+            "alpha",
+          );
+        } catch (err) {
+          const bodyEl = tileEl.querySelector(".detail-card-body");
+          const explorerUrl = data.explorer && data.address
+            ? `${data.explorer}/address/${data.address}`
+            : null;
+          const link = explorerUrl
+            ? ` <a href="${escapeHtml(explorerUrl)}" target="_blank" rel="noopener" style="color:var(--accent)">View on explorer &#8599;</a>`
+            : "";
+          bodyEl.innerHTML = `<div style="padding:14px 18px;font-size:13px;color:var(--amber)">&#9888; Cannot retrieve events: ${escapeHtml(err.message)}.${link}</div>`;
+        }
+      }
+
       function formatEth(rawWei) {
         if (rawWei === null || rawWei === undefined) {
           return '<span style="color:var(--text-dim)">—</span>';
