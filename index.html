@@ -621,15 +621,6 @@
         return 0;
       }
 
-      function toggleUnsetParams(checkbox) {
-        const card = checkbox.closest(".detail-card");
-        const rows = card.querySelectorAll(
-          '.detail-row[data-param-unset="true"]',
-        );
-        for (const row of rows) {
-          row.style.display = checkbox.checked ? "none" : "";
-        }
-      }
 
       // ---- Parameter History tile helpers ----
 
