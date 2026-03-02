@@ -480,6 +480,25 @@
         margin-left: auto;
         font-size: 11px;
         font-weight: 400;
+        align-items: center;
+      }
+      .param-xmtp-filter {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        font-weight: 400;
+        color: var(--text-dim);
+        cursor: pointer;
+        user-select: none;
+        margin-left: 8px;
+      }
+      .param-xmtp-filter input[type="checkbox"] {
+        width: 11px;
+        height: 11px;
+        cursor: pointer;
+        accent-color: var(--accent);
+        margin: 0;
       }
       .param-sort-btn {
         padding: 2px 8px;
@@ -680,13 +699,25 @@
         tileBodyEl,
         explorerUrl,
         currentSort,
+        tileEl,
       ) {
         if (!data.keys || data.keys.length === 0) {
           tileBodyEl.innerHTML = `<div style="padding:14px 18px;color:var(--text-dim);font-size:13px">No ParameterSet events found.</div>`;
           return;
         }
 
-        const sorted = [...data.keys];
+        const filterEl = tileEl ? tileEl.querySelector("#param-xmtp-only") : null;
+        const xmtpOnly = filterEl ? filterEl.checked : true;
+        const keys = xmtpOnly
+          ? data.keys.filter((e) => e.key.startsWith("xmtp."))
+          : data.keys;
+
+        if (keys.length === 0) {
+          tileBodyEl.innerHTML = `<div style="padding:14px 18px;color:var(--text-dim);font-size:13px">No matching parameters found.</div>`;
+          return;
+        }
+
+        const sorted = [...keys];
         if (currentSort === "recent") {
           sorted.sort(
             (a, b) => (b.lastChangedBlock || 0) - (a.lastChangedBlock || 0),
@@ -751,8 +782,24 @@
             tileEl.querySelector(".detail-card-body"),
             explorerUrl,
             mode,
+            tileEl,
           );
         }
+      }
+
+      function toggleXmtpFilter(tileEl) {
+        const cachedData = tileEl._paramHistoryData;
+        const explorerUrl = tileEl._paramHistoryExplorerUrl;
+        if (!cachedData) return;
+        const currentSort =
+          tileEl.querySelector(".param-sort-btn.active")?.dataset.sort || "alpha";
+        renderParameterHistoryContent(
+          cachedData,
+          tileEl.querySelector(".detail-card-body"),
+          explorerUrl,
+          currentSort,
+          tileEl,
+        );
       }
 
       async function loadParameterHistory(data, container) {
@@ -794,6 +841,7 @@
             bodyEl,
             tileEl._paramHistoryExplorerUrl,
             "alpha",
+            tileEl,
           );
         } catch (err) {
           const bodyEl = tileEl.querySelector(".detail-card-body");
@@ -1436,6 +1484,10 @@
         <div class="param-sort-toggle">
           <button class="param-sort-btn active" data-sort="alpha" onclick="sortParameterHistory(this.closest('#param-history-tile'),'alpha')">Key A→Z</button>
           <button class="param-sort-btn" data-sort="recent" onclick="sortParameterHistory(this.closest('#param-history-tile'),'recent')">Recently Changed</button>
+          <label class="param-xmtp-filter" title="Show only xmtp.* parameters">
+            <input type="checkbox" id="param-xmtp-only" checked onchange="toggleXmtpFilter(this.closest('#param-history-tile'))">
+            XMTP Only
+          </label>
         </div>
       </div>
       <div class="detail-card-body">
