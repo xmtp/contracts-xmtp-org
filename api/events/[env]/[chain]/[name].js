@@ -11,7 +11,27 @@ const {
   getContractAddress,
 } = require("../../../../src/config");
 
-const VALID_NAMES = new Set([
+async function fetchBlockTimestamps(blockNumbers, provider) {
+  const unique = [...new Set(blockNumbers)];
+  const results = {};
+  // Process in batches to avoid rate-limiting
+  for (let i = 0; i < unique.length; i += 20) {
+    const batch = unique.slice(i, i + 20);
+    await Promise.allSettled(
+      batch.map(async (n) => {
+        try {
+          const block = await provider.getBlock(n);
+          results[n] = block ? Number(block.timestamp) : null;
+        } catch {
+          results[n] = null;
+        }
+      }),
+    );
+  }
+  return results;
+}
+
+const PARAMETER_REGISTRY_NAMES = new Set([
   "SettlementChainParameterRegistry",
   "AppChainParameterRegistry",
 ]);
@@ -26,12 +46,8 @@ module.exports = async function handler(req, res) {
   if (!["settlement", "app"].includes(chain)) {
     return res.status(400).json({ error: `Invalid chain: ${chain}` });
   }
-  if (!VALID_NAMES.has(name)) {
-    return res
-      .status(400)
-      .json({
-        error: `Invalid contract name: ${name}. Must be SettlementChainParameterRegistry or AppChainParameterRegistry`,
-      });
+  if (!PARAMETER_REGISTRY_NAMES.has(name)) {
+    return res.status(400).json({ error: "Invalid contract name" });
   }
 
   // Locate the contract definition
@@ -39,7 +55,9 @@ module.exports = async function handler(req, res) {
     chain === "settlement" ? SETTLEMENT_CONTRACTS : APP_CONTRACTS;
   const contractDef = allContracts.find((c) => c.name === name);
   if (!contractDef) {
-    return res.status(400).json({ error: `Contract ${name} not found on chain ${chain}` });
+    return res
+      .status(400)
+      .json({ error: `Contract not available on ${chain} chain` });
   }
 
   // Resolve the contract address
@@ -55,7 +73,7 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       keys: null,
       totalEvents: 0,
-      explorerUrl: null,
+      explorerUrl,
       error: `No address found for ${name} in ${env}`,
     });
   }
@@ -99,24 +117,17 @@ module.exports = async function handler(req, res) {
 
     const totalEvents = events.length;
 
-    // Collect unique block numbers and fetch timestamps in parallel
-    const uniqueBlocks = [...new Set(events.map((e) => e.blockNumber))];
-    const blockTimestamps = {};
-    await Promise.all(
-      uniqueBlocks.map(async (blockNumber) => {
-        try {
-          const block = await provider.getBlock(blockNumber);
-          blockTimestamps[blockNumber] = block ? block.timestamp : null;
-        } catch {
-          blockTimestamps[blockNumber] = null;
-        }
-      }),
+    // Collect unique block numbers and fetch timestamps in batches
+    const blockTimestamps = await fetchBlockTimestamps(
+      events.map((e) => e.blockNumber),
+      provider,
     );
 
     // Group events by key (not keyHash)
     const byKey = {};
     for (const event of events) {
-      const key = event.args.key;
+      const key = event.args?.key;
+      if (!key) continue;  // skip malformed events
       const rawValue = event.args.value;
       const blockNumber = event.blockNumber;
       const timestamp = blockTimestamps[blockNumber] ?? null;
