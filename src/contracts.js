@@ -171,8 +171,9 @@ async function readLastPayerReports(contract, provider) {
 
     if (!events || events.length === 0) return [];
 
-    // Group by originator, keep highest payerReportIndex
+    // Group by originator, keep highest payerReportIndex — also track the event itself
     const latestByOriginator = {};
+    const latestEventByOriginator = {};
     for (const event of events) {
       const originatorNodeId = Number(event.args.originatorNodeId);
       const payerReportIndex = Number(event.args.payerReportIndex);
@@ -182,6 +183,7 @@ async function readLastPayerReports(contract, provider) {
         payerReportIndex > latestByOriginator[originatorNodeId]
       ) {
         latestByOriginator[originatorNodeId] = payerReportIndex;
+        latestEventByOriginator[originatorNodeId] = event;
       }
     }
 
@@ -201,10 +203,81 @@ async function readLastPayerReports(contract, provider) {
       );
     }
 
+    // Fetch block timestamps for submit events (deduplicate block numbers)
+    const submitBlockNumbers = originatorIds.map(
+      (id) => latestEventByOriginator[id].blockNumber,
+    );
+    const uniqueSubmitBlocks = [...new Set(submitBlockNumbers)];
+    const submitBlockData = await Promise.all(
+      uniqueSubmitBlocks.map((bn) => provider.getBlock(bn).catch(() => null)),
+    );
+    const submitBlockTimestamps = {};
+    for (let i = 0; i < uniqueSubmitBlocks.length; i++) {
+      if (submitBlockData[i]) {
+        submitBlockTimestamps[uniqueSubmitBlocks[i]] =
+          submitBlockData[i].timestamp;
+      }
+    }
+
+    // Query settlement events for all originator+reportIndex pairs
+    let settleEvents = [];
+    try {
+      const settleFilter = contract.filters.PayerReportSubsetSettled();
+      try {
+        settleEvents = await contract.queryFilter(settleFilter);
+      } catch {
+        const currentBlock = await provider.getBlockNumber();
+        settleEvents = await contract.queryFilter(
+          settleFilter,
+          Math.max(0, currentBlock - 500000),
+        );
+      }
+    } catch {
+      // Settlement events unavailable — proceed without them
+    }
+
+    // Index latest settlement event by "originatorId:reportIndex"
+    const latestSettleEvent = {};
+    for (const event of settleEvents) {
+      const key = `${Number(event.args.originatorNodeId)}:${Number(event.args.payerReportIndex)}`;
+      if (
+        !latestSettleEvent[key] ||
+        event.blockNumber > latestSettleEvent[key].blockNumber
+      ) {
+        latestSettleEvent[key] = event;
+      }
+    }
+
+    // Fetch block timestamps for unique settlement blocks
+    const uniqueSettleBlocks = [
+      ...new Set(Object.values(latestSettleEvent).map((e) => e.blockNumber)),
+    ];
+    const settleBlockData = await Promise.all(
+      uniqueSettleBlocks.map((bn) => provider.getBlock(bn).catch(() => null)),
+    );
+    const settleBlockTimestamps = {};
+    for (let i = 0; i < uniqueSettleBlocks.length; i++) {
+      if (settleBlockData[i]) {
+        settleBlockTimestamps[uniqueSettleBlocks[i]] =
+          settleBlockData[i].timestamp;
+      }
+    }
+
     return originatorIds
       .map((id, i) => {
         const r = reports[i];
         if (!r) return null;
+
+        const submitEvent = latestEventByOriginator[id];
+        const submitBlockTs =
+          submitBlockTimestamps[submitEvent.blockNumber] || null;
+
+        const settleKey = `${id}:${indices[i]}`;
+        const settleEvent = latestSettleEvent[settleKey] || null;
+        const settleBlockTs = settleEvent
+          ? settleBlockTimestamps[settleEvent.blockNumber] || null
+          : null;
+
         return {
           originatorNodeId: id,
           reportIndex: indices[i],
@@ -217,6 +290,10 @@ async function readLastPayerReports(contract, provider) {
           protocolFeeRate: Number(r.protocolFeeRate),
           payersMerkleRoot: r.payersMerkleRoot,
           nodeIds: r.nodeIds ? Array.from(r.nodeIds).map(Number) : [],
+          submitTxHash: submitEvent.transactionHash,
+          submitTimestamp: submitBlockTs,
+          settleTxHash: settleEvent ? settleEvent.transactionHash : null,
+          settleTimestamp: settleBlockTs,
         };
       })
       .filter(Boolean);

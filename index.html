@@ -1275,7 +1275,8 @@
             <th>Report #</th>
             <th>Seq From</th>
             <th>Seq To</th>
-            <th>End Time</th>
+            <th>Last Envelope Timestamp</th>
+            <th>Submitted</th>
             <th>Settled</th>
             <th>Fees Settled</th>
             <th>Node IDs</th>
@@ -1289,8 +1290,29 @@
                       .replace("T", " ")
                       .replace(".000Z", " UTC")
                   : "-";
-              const settledBadge = r.isSettled
-                ? '<span class="badge-match">Yes</span>'
+
+              const fmtBlockTs = (ts) =>
+                ts
+                  ? new Date(ts * 1000)
+                      .toISOString()
+                      .replace("T", " ")
+                      .replace(".000Z", " UTC")
+                  : null;
+
+              const submitTs = fmtBlockTs(r.submitTimestamp);
+              const submitCell = submitTs
+                ? explorer && r.submitTxHash
+                  ? `<a href="${explorer}/tx/${r.submitTxHash}" target="_blank" rel="noopener" style="color:var(--accent);white-space:nowrap">${submitTs} &#8599;</a>`
+                  : `<span style="white-space:nowrap">${submitTs}</span>`
+                : "-";
+
+              const settleTs = fmtBlockTs(r.settleTimestamp);
+              const settleCell = r.isSettled
+                ? settleTs
+                  ? explorer && r.settleTxHash
+                    ? `<a href="${explorer}/tx/${r.settleTxHash}" target="_blank" rel="noopener" style="color:var(--accent);white-space:nowrap">${settleTs} &#8599;</a>`
+                    : `<span style="white-space:nowrap">${settleTs}</span>`
+                  : '<span class="badge-match">Yes</span>'
                 : '<span style="color:var(--amber)">No</span>';
 
               html += `<tr>
@@ -1299,7 +1321,8 @@
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml(r.startSequenceId)}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml(r.endSequenceId)}</td>
             <td style="font-size:12px">${endTime}</td>
-            <td style="text-align:center">${settledBadge}</td>
+            <td style="font-size:12px">${submitCell}</td>
+            <td style="font-size:12px">${settleCell}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml(r.feesSettled || "0")}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml((r.nodeIds || []).join(", ") || "-")}</td>
           </tr>`;
