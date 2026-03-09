@@ -1581,13 +1581,13 @@
         container.innerHTML = html;
 
         // Wire up payer reports interactive table
-        if (lastPayerReports && lastPayerReports.length > 0) {
+        if (data.state?.lastPayerReports?.length > 0) {
           window.__pr = {
-            data: lastPayerReports,
+            data: data.state.lastPayerReports,
             shown: 20,
             sort2: "reportIndex",
             explorer: explorer,
-            feeDecimals: feeTokenDecimals,
+            feeDecimals: data.state.feeTokenDecimals,
           };
           window.__prRender();
         }
