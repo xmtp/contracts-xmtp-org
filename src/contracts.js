@@ -233,10 +233,10 @@ async function hydrateReportPairs(contract, provider, pairs) {
       return {
         originatorNodeId: p.originatorNodeId,
         reportIndex: p.reportIndex,
-        startSequenceId: r.startSequenceId,
-        endSequenceId: r.endSequenceId,
+        startSequenceId: r.startSequenceId !== undefined ? r.startSequenceId.toString() : null,
+        endSequenceId: r.endSequenceId !== undefined ? r.endSequenceId.toString() : null,
         endMinuteSinceEpoch: Number(r.endMinuteSinceEpoch),
-        feesSettled: r.feesSettled,
+        feesSettled: r.feesSettled !== undefined ? r.feesSettled.toString() : null,
         offset: Number(r.offset),
         isSettled: r.isSettled,
         protocolFeeRate: Number(r.protocolFeeRate),
