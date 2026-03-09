@@ -290,6 +290,9 @@ async function readLastPayerReports(contract, provider) {
           protocolFeeRate: Number(r.protocolFeeRate),
           payersMerkleRoot: r.payersMerkleRoot,
           nodeIds: r.nodeIds ? Array.from(r.nodeIds).map(Number) : [],
+          signingNodeIds: submitEvent.args.signingNodeIds
+            ? Array.from(submitEvent.args.signingNodeIds).map(Number)
+            : [],
           submitTxHash: submitEvent.transactionHash,
           submitTimestamp: submitBlockTs,
           settleTxHash: settleEvent ? settleEvent.transactionHash : null,
