@@ -630,11 +630,24 @@
         return `<span style="font-family:var(--mono);font-size:12px">${escapeHtml(val)}</span>`;
       }
 
+      function addCommas(intStr) {
+        return intStr.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      }
+
+      function fmtInt(val) {
+        if (val === null || val === undefined) return "-";
+        try {
+          return addCommas(BigInt(val).toString());
+        } catch {
+          return val.toString();
+        }
+      }
+
       function formatTokenAmount(rawVal, decimals) {
         if (rawVal === null || rawVal === undefined) return null;
         try {
           const n = BigInt(rawVal);
-          if (decimals === null || decimals === undefined) return n.toString();
+          if (decimals === null || decimals === undefined) return addCommas(n.toString());
           const isNeg = n < 0n;
           const abs = isNeg ? -n : n;
           const d = 10n ** BigInt(decimals);
@@ -644,7 +657,7 @@
             .toString()
             .padStart(decimals, "0")
             .replace(/0+$/, "");
-          const formatted = fracStr ? `${whole}.${fracStr}` : whole.toString();
+          const formatted = fracStr ? `${addCommas(whole.toString())}.${fracStr}` : addCommas(whole.toString());
           return isNeg ? `-${formatted}` : formatted;
         } catch {
           return rawVal.toString();
@@ -1319,8 +1332,8 @@
               html += `<tr>
             <td style="font-family:var(--mono);font-size:13px">${escapeHtml(r.originatorNodeId)}</td>
             <td style="font-family:var(--mono);font-size:13px">${escapeHtml(r.reportIndex)}</td>
-            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(r.startSequenceId)}</td>
-            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(r.endSequenceId)}</td>
+            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(fmtInt(r.startSequenceId))}</td>
+            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(fmtInt(r.endSequenceId))}</td>
             <td style="font-size:12px">${endTime}</td>
             <td style="font-size:12px">${submitCell}</td>
             <td style="font-size:12px">${settleCell}</td>
