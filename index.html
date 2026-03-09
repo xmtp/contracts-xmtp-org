@@ -1354,7 +1354,7 @@
             <td style="font-size:12px">${submitCell}</td>
             <td style="font-size:12px">${settleCell}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml(formatTokenAmount(r.feesSettled, feeTokenDecimals) ?? r.feesSettled ?? "0")}</td>
-            <td style="font-family:var(--mono);font-size:11px">${r.submitter ? (explorer ? `<a href="${explorer}/address/${r.submitter}" target="_blank" rel="noopener" style="color:var(--accent)">${escapeHtml(r.submitter)}</a>` : escapeHtml(r.submitter)) : "-"}</td>
+            <td style="font-family:var(--mono);font-size:11px">${renderAddress(r.submitter, explorer)}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml((r.nodeIds || []).join(", ") || "-")}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml((r.signingNodeIds || []).join(", ") || "-")}</td>
           </tr>`;
