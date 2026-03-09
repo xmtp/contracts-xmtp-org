@@ -203,19 +203,39 @@ async function readLastPayerReports(contract, provider) {
       );
     }
 
-    // Fetch block timestamps for submit events (deduplicate block numbers)
+    // Fetch block timestamps and submit tx senders in parallel
+    const submitTxHashes = originatorIds.map(
+      (id) => latestEventByOriginator[id].transactionHash,
+    );
     const submitBlockNumbers = originatorIds.map(
       (id) => latestEventByOriginator[id].blockNumber,
     );
     const uniqueSubmitBlocks = [...new Set(submitBlockNumbers)];
-    const submitBlockData = await Promise.all(
-      uniqueSubmitBlocks.map((bn) => provider.getBlock(bn).catch(() => null)),
-    );
+    const uniqueSubmitTxHashes = [...new Set(submitTxHashes)];
+
+    const [submitBlockData, submitTxData] = await Promise.all([
+      Promise.all(
+        uniqueSubmitBlocks.map((bn) => provider.getBlock(bn).catch(() => null)),
+      ),
+      Promise.all(
+        uniqueSubmitTxHashes.map((hash) =>
+          provider.getTransaction(hash).catch(() => null),
+        ),
+      ),
+    ]);
+
     const submitBlockTimestamps = {};
     for (let i = 0; i < uniqueSubmitBlocks.length; i++) {
       if (submitBlockData[i]) {
         submitBlockTimestamps[uniqueSubmitBlocks[i]] =
           submitBlockData[i].timestamp;
+      }
+    }
+
+    const submitTxSenders = {};
+    for (let i = 0; i < uniqueSubmitTxHashes.length; i++) {
+      if (submitTxData[i]) {
+        submitTxSenders[uniqueSubmitTxHashes[i]] = submitTxData[i].from;
       }
     }
 
@@ -293,6 +313,7 @@ async function readLastPayerReports(contract, provider) {
           signingNodeIds: submitEvent.args.signingNodeIds
             ? Array.from(submitEvent.args.signingNodeIds).map(Number)
             : [],
+          submitter: submitTxSenders[submitEvent.transactionHash] || null,
           submitTxHash: submitEvent.transactionHash,
           submitTimestamp: submitBlockTs,
           settleTxHash: settleEvent ? settleEvent.transactionHash : null,
