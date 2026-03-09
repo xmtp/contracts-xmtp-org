@@ -1176,6 +1176,87 @@
         }
       }
 
+      // Payer reports interactive table — called on initial render and on sort/page changes
+      window.__prRender = function () {
+        const pr = window.__pr;
+        if (!pr) return;
+        const { data, shown, sort2, explorer, feeDecimals } = pr;
+
+        // Sort: primary originator asc, secondary configurable
+        const sorted = [...data].sort((a, b) => {
+          if (a.originatorNodeId !== b.originatorNodeId)
+            return a.originatorNodeId - b.originatorNodeId;
+          if (sort2 === "startSequenceId") {
+            const diff = BigInt(a.startSequenceId) - BigInt(b.startSequenceId);
+            return diff < 0n ? -1 : diff > 0n ? 1 : 0;
+          }
+          return b.reportIndex - a.reportIndex;
+        });
+
+        const slice = sorted.slice(0, shown);
+        const remaining = Math.max(0, sorted.length - shown);
+
+        const fmtBlockTs = (ts) =>
+          ts
+            ? new Date(ts * 1000).toISOString().replace("T", " ").replace(".000Z", " UTC")
+            : null;
+
+        let rows = "";
+        for (const r of slice) {
+          const endTime =
+            r.endMinuteSinceEpoch && r.endMinuteSinceEpoch > 0
+              ? new Date(r.endMinuteSinceEpoch * 60 * 1000).toISOString().replace("T", " ").replace(".000Z", " UTC")
+              : "-";
+
+          const submitTs = fmtBlockTs(r.submitTimestamp);
+          const submitCell = submitTs
+            ? explorer && r.submitTxHash
+              ? `<a href="${explorer}/tx/${r.submitTxHash}" target="_blank" rel="noopener" style="color:var(--accent);white-space:nowrap">${submitTs} &#8599;</a>`
+              : `<span style="white-space:nowrap">${submitTs}</span>`
+            : "-";
+
+          const settleTs = fmtBlockTs(r.settleTimestamp);
+          const settleCell = r.isSettled
+            ? settleTs
+              ? explorer && r.settleTxHash
+                ? `<a href="${explorer}/tx/${r.settleTxHash}" target="_blank" rel="noopener" style="color:var(--accent);white-space:nowrap">${settleTs} &#8599;</a>`
+                : `<span style="white-space:nowrap">${settleTs}</span>`
+              : '<span class="badge-match">Yes</span>'
+            : '<span style="color:var(--amber)">No</span>';
+
+          rows += `<tr>
+            <td style="font-family:var(--mono);font-size:13px">${escapeHtml(r.originatorNodeId)}</td>
+            <td style="font-family:var(--mono);font-size:13px">${escapeHtml(r.reportIndex)}</td>
+            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(fmtInt(r.startSequenceId))}</td>
+            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(fmtInt(r.endSequenceId))}</td>
+            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(fmtInt(BigInt(r.endSequenceId) - BigInt(r.startSequenceId)))}</td>
+            <td style="font-size:12px">${endTime}</td>
+            <td style="font-size:12px">${submitCell}</td>
+            <td style="font-size:12px">${settleCell}</td>
+            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(formatTokenAmount(r.feesSettled, feeDecimals) ?? r.feesSettled ?? "0")}</td>
+            <td style="font-family:var(--mono);font-size:11px">${renderAddress(r.submitter, explorer, true)}</td>
+            <td style="font-family:var(--mono);font-size:12px">${escapeHtml((r.nodeIds || []).join(", ") || "-")}</td>
+            <td style="font-family:var(--mono);font-size:12px">${escapeHtml((r.signingNodeIds || []).join(", ") || "-")}</td>
+          </tr>`;
+        }
+
+        const tbody = document.getElementById("__pr-tbody");
+        if (tbody) tbody.innerHTML = rows;
+
+        const footer = document.getElementById("__pr-footer");
+        if (footer) {
+          footer.innerHTML = remaining > 0
+            ? `<button onclick="window.__pr.shown+=20;window.__prRender()" style="margin:10px 18px;padding:6px 14px;background:var(--card-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);cursor:pointer;font-size:12px">Show ${Math.min(20, remaining)} more <span style="color:var(--text-dim)">(${remaining} remaining)</span></button>`
+            : "";
+        }
+
+        // Update sort indicators
+        ["reportIndex", "startSequenceId"].forEach((key) => {
+          const el = document.getElementById(`__pr-sort-${key}`);
+          if (el) el.textContent = sort2 === key ? (key === "startSequenceId" ? " ▲" : " ▼") : "";
+        });
+      };
+
       function renderContractDetails(data, container) {
         const explorer = data.explorer || "";
 
@@ -1278,103 +1359,44 @@
             html += `</tbody></table></div></div></div>`;
           }
 
-          // Last payer reports per originator
-          if (lastPayerReports && lastPayerReports.length > 0) {
-            html += `<div class="detail-card">
-      <div class="detail-card-header">Last Payer Reports <span style="color:var(--text-dim);font-weight:400;font-size:12px">${lastPayerReports.length} originator${lastPayerReports.length !== 1 ? "s" : ""}</span></div>
+          // Payer reports
+          if (lastPayerReports !== undefined && lastPayerReports !== null) {
+            if (lastPayerReports.length > 0) {
+              const thDesc = (text) => `<th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">${text}</th>`;
+              const sortBtn = (key) => `<span id="__pr-sort-${key}" style="color:var(--text-dim)"></span>`;
+              const thSort = (label, key, desc) => `<th style="cursor:pointer;user-select:none" onclick="window.__pr.sort2='${key}';window.__prRender()" title="Sort by ${label}">${label}${sortBtn(key)}<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">${desc}</div></th>`;
+              html += `<div class="detail-card">
+      <div class="detail-card-header">Payer Reports <span style="color:var(--text-dim);font-weight:400;font-size:12px">${lastPayerReports.length} total</span></div>
       <div class="detail-card-body"><div class="table-wrapper">
         <table style="margin:0">
           <thead>
             <tr>
-              <th>Originator</th>
-              <th>Report #</th>
-              <th>Seq From</th>
-              <th>Seq To</th>
-              <th>Message Count</th>
-              <th>End Timestamp</th>
-              <th>Submitted</th>
-              <th>Settled</th>
-              <th>Fees Settled (xUSD)</th>
-              <th>Submitter</th>
-              <th>Node IDs</th>
-              <th>Signing Node IDs</th>
+              <th>Originator<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Entry node that first received the messages</div></th>
+              ${thSort("Report #", "reportIndex", "Sequential index per originator")}
+              ${thSort("Seq From", "startSequenceId", "First message sequence in this report")}
+              <th>Seq To<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Last message sequence in this report</div></th>
+              <th>Message Count<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Seq To minus Seq From</div></th>
+              <th>End Timestamp<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Originator assigned timestamp of the Seq To message</div></th>
+              <th>Submitted<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">When this report was submitted on chain</div></th>
+              <th>Settled<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">When all payer fees were fully collected, or No if still pending</div></th>
+              <th>Fees Settled (xUSD)<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Total xUSD deducted from payer prepaid balances for messages in this range, now claimable by nodes</div></th>
+              <th>Submitter<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Address that called submit(). Anyone can relay</div></th>
+              <th>Node IDs<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Canonical nodes at submission time. Share the fees</div></th>
+              <th>Signing Node IDs<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Nodes that signed to attest this report (majority required)</div></th>
             </tr>
-            <tr style="border-top:none">
-              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Entry node that first received the messages</th>
-              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Sequential index per originator</th>
-              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">First message sequence in this report</th>
-              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Last message sequence in this report</th>
-              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Seq To minus Seq From</th>
-              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Originator assigned timestamp of the Seq To message</th>
-              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">When this report was submitted on chain</th>
-              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">When all payer fees were fully collected, or No if still pending</th>
-              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Total xUSD deducted from payer prepaid balances for messages in this range, now claimable by nodes</th>
-              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Address that called submit(). Anyone can relay</th>
-              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Canonical nodes at submission time. Share the fees</th>
-              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Nodes that signed to attest this report (majority required)</th>
-            </tr>
-          </thead><tbody>`;
-
-            for (const r of lastPayerReports) {
-              const endTime =
-                r.endMinuteSinceEpoch && r.endMinuteSinceEpoch > 0
-                  ? new Date(r.endMinuteSinceEpoch * 60 * 1000)
-                      .toISOString()
-                      .replace("T", " ")
-                      .replace(".000Z", " UTC")
-                  : "-";
-
-              const fmtBlockTs = (ts) =>
-                ts
-                  ? new Date(ts * 1000)
-                      .toISOString()
-                      .replace("T", " ")
-                      .replace(".000Z", " UTC")
-                  : null;
-
-              const submitTs = fmtBlockTs(r.submitTimestamp);
-              const submitCell = submitTs
-                ? explorer && r.submitTxHash
-                  ? `<a href="${explorer}/tx/${r.submitTxHash}" target="_blank" rel="noopener" style="color:var(--accent);white-space:nowrap">${submitTs} &#8599;</a>`
-                  : `<span style="white-space:nowrap">${submitTs}</span>`
-                : "-";
-
-              const settleTs = fmtBlockTs(r.settleTimestamp);
-              const settleCell = r.isSettled
-                ? settleTs
-                  ? explorer && r.settleTxHash
-                    ? `<a href="${explorer}/tx/${r.settleTxHash}" target="_blank" rel="noopener" style="color:var(--accent);white-space:nowrap">${settleTs} &#8599;</a>`
-                    : `<span style="white-space:nowrap">${settleTs}</span>`
-                  : '<span class="badge-match">Yes</span>'
-                : '<span style="color:var(--amber)">No</span>';
-
-              html += `<tr>
-            <td style="font-family:var(--mono);font-size:13px">${escapeHtml(r.originatorNodeId)}</td>
-            <td style="font-family:var(--mono);font-size:13px">${escapeHtml(r.reportIndex)}</td>
-            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(fmtInt(r.startSequenceId))}</td>
-            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(fmtInt(r.endSequenceId))}</td>
-            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(fmtInt(BigInt(r.endSequenceId) - BigInt(r.startSequenceId)))}</td>
-            <td style="font-size:12px">${endTime}</td>
-            <td style="font-size:12px">${submitCell}</td>
-            <td style="font-size:12px">${settleCell}</td>
-            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(formatTokenAmount(r.feesSettled, feeTokenDecimals) ?? r.feesSettled ?? "0")}</td>
-            <td style="font-family:var(--mono);font-size:11px">${renderAddress(r.submitter, explorer, true)}</td>
-            <td style="font-family:var(--mono);font-size:12px">${escapeHtml((r.nodeIds || []).join(", ") || "-")}</td>
-            <td style="font-family:var(--mono);font-size:12px">${escapeHtml((r.signingNodeIds || []).join(", ") || "-")}</td>
-          </tr>`;
-            }
-
-            html += `</tbody></table></div></div></div>`;
-          } else if (
-            lastPayerReports !== undefined &&
-            lastPayerReports !== null &&
-            lastPayerReports.length === 0
-          ) {
-            html += `<div class="detail-card">
-      <div class="detail-card-header">Last Payer Reports</div>
+          </thead>
+          <tbody id="__pr-tbody"></tbody>
+        </table>
+      </div>
+      <div id="__pr-footer"></div>
+      </div></div>`;
+            } else {
+              html += `<div class="detail-card">
+      <div class="detail-card-header">Payer Reports</div>
       <div class="detail-card-body">
         <div style="padding:14px 18px;color:var(--text-dim);font-size:13px">No payer reports submitted yet.</div>
       </div></div>`;
+            }
           }
 
           // Registry Overview card (PayerRegistry global financials)
@@ -1557,6 +1579,18 @@
         }
 
         container.innerHTML = html;
+
+        // Wire up payer reports interactive table
+        if (lastPayerReports && lastPayerReports.length > 0) {
+          window.__pr = {
+            data: lastPayerReports,
+            shown: 20,
+            sort2: "reportIndex",
+            explorer: explorer,
+            feeDecimals: feeTokenDecimals,
+          };
+          window.__prRender();
+        }
 
         // Kick off async parameter history load if applicable
         if (hasParameterHistory) {

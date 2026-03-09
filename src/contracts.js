@@ -151,17 +151,15 @@ async function readParameterValues(contract) {
   }
 }
 
-// Read last payer report per originator from PayerReportSubmitted events
-async function readLastPayerReports(contract, provider) {
+// Read all payer reports from PayerReportSubmitted events
+async function readPayerReports(contract, provider) {
   try {
     const filter = contract.filters.PayerReportSubmitted();
     let events;
 
     try {
-      // Try querying all events from block 0
       events = await contract.queryFilter(filter);
     } catch {
-      // Some providers limit range - fall back to recent blocks
       const currentBlock = await provider.getBlockNumber();
       events = await contract.queryFilter(
         filter,
@@ -171,31 +169,25 @@ async function readLastPayerReports(contract, provider) {
 
     if (!events || events.length === 0) return [];
 
-    // Group by originator, keep highest payerReportIndex — also track the event itself
-    const latestByOriginator = {};
-    const latestEventByOriginator = {};
+    // Deduplicate by originator+reportIndex (events should be unique but guard anyway)
+    const seen = new Set();
+    const uniqueEvents = [];
     for (const event of events) {
-      const originatorNodeId = Number(event.args.originatorNodeId);
-      const payerReportIndex = Number(event.args.payerReportIndex);
-
-      if (
-        !latestByOriginator[originatorNodeId] ||
-        payerReportIndex > latestByOriginator[originatorNodeId]
-      ) {
-        latestByOriginator[originatorNodeId] = payerReportIndex;
-        latestEventByOriginator[originatorNodeId] = event;
+      const key = `${Number(event.args.originatorNodeId)}:${Number(event.args.payerReportIndex)}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueEvents.push(event);
       }
     }
 
-    const originatorIds = Object.keys(latestByOriginator).map(Number);
-    const indices = originatorIds.map((id) => latestByOriginator[id]);
+    const originatorIds = uniqueEvents.map((e) => Number(e.args.originatorNodeId));
+    const indices = uniqueEvents.map((e) => Number(e.args.payerReportIndex));
 
     // Batch fetch actual report structs
     let reports;
     try {
       reports = await contract.getPayerReports(originatorIds, indices);
     } catch {
-      // Fall back to individual calls
       reports = await Promise.all(
         originatorIds.map((id, i) =>
           safeCall(contract, "getPayerReport", id, indices[i]),
@@ -203,43 +195,28 @@ async function readLastPayerReports(contract, provider) {
       );
     }
 
-    // Fetch block timestamps and submit tx senders in parallel
-    const submitTxHashes = originatorIds.map(
-      (id) => latestEventByOriginator[id].transactionHash,
-    );
-    const submitBlockNumbers = originatorIds.map(
-      (id) => latestEventByOriginator[id].blockNumber,
-    );
-    const uniqueSubmitBlocks = [...new Set(submitBlockNumbers)];
-    const uniqueSubmitTxHashes = [...new Set(submitTxHashes)];
+    // Fetch block timestamps and submit tx senders in parallel (deduped)
+    const txHashes = uniqueEvents.map((e) => e.transactionHash);
+    const blockNumbers = uniqueEvents.map((e) => e.blockNumber);
+    const uniqueBlocks = [...new Set(blockNumbers)];
+    const uniqueTxHashes = [...new Set(txHashes)];
 
-    const [submitBlockData, submitTxData] = await Promise.all([
-      Promise.all(
-        uniqueSubmitBlocks.map((bn) => provider.getBlock(bn).catch(() => null)),
-      ),
-      Promise.all(
-        uniqueSubmitTxHashes.map((hash) =>
-          provider.getTransaction(hash).catch(() => null),
-        ),
-      ),
+    const [blockData, txData] = await Promise.all([
+      Promise.all(uniqueBlocks.map((bn) => provider.getBlock(bn).catch(() => null))),
+      Promise.all(uniqueTxHashes.map((hash) => provider.getTransaction(hash).catch(() => null))),
     ]);
 
-    const submitBlockTimestamps = {};
-    for (let i = 0; i < uniqueSubmitBlocks.length; i++) {
-      if (submitBlockData[i]) {
-        submitBlockTimestamps[uniqueSubmitBlocks[i]] =
-          submitBlockData[i].timestamp;
-      }
+    const blockTimestamps = {};
+    for (let i = 0; i < uniqueBlocks.length; i++) {
+      if (blockData[i]) blockTimestamps[uniqueBlocks[i]] = blockData[i].timestamp;
     }
 
-    const submitTxSenders = {};
-    for (let i = 0; i < uniqueSubmitTxHashes.length; i++) {
-      if (submitTxData[i]) {
-        submitTxSenders[uniqueSubmitTxHashes[i]] = submitTxData[i].from;
-      }
+    const txSenders = {};
+    for (let i = 0; i < uniqueTxHashes.length; i++) {
+      if (txData[i]) txSenders[uniqueTxHashes[i]] = txData[i].from;
     }
 
-    // Query settlement events for all originator+reportIndex pairs
+    // Query settlement events
     let settleEvents = [];
     try {
       const settleFilter = contract.filters.PayerReportSubsetSettled();
@@ -256,19 +233,14 @@ async function readLastPayerReports(contract, provider) {
       // Settlement events unavailable — proceed without them
     }
 
-    // Index latest settlement event by "originatorId:reportIndex"
     const latestSettleEvent = {};
     for (const event of settleEvents) {
       const key = `${Number(event.args.originatorNodeId)}:${Number(event.args.payerReportIndex)}`;
-      if (
-        !latestSettleEvent[key] ||
-        event.blockNumber > latestSettleEvent[key].blockNumber
-      ) {
+      if (!latestSettleEvent[key] || event.blockNumber > latestSettleEvent[key].blockNumber) {
         latestSettleEvent[key] = event;
       }
     }
 
-    // Fetch block timestamps for unique settlement blocks
     const uniqueSettleBlocks = [
       ...new Set(Object.values(latestSettleEvent).map((e) => e.blockNumber)),
     ];
@@ -277,29 +249,17 @@ async function readLastPayerReports(contract, provider) {
     );
     const settleBlockTimestamps = {};
     for (let i = 0; i < uniqueSettleBlocks.length; i++) {
-      if (settleBlockData[i]) {
-        settleBlockTimestamps[uniqueSettleBlocks[i]] =
-          settleBlockData[i].timestamp;
-      }
+      if (settleBlockData[i]) settleBlockTimestamps[uniqueSettleBlocks[i]] = settleBlockData[i].timestamp;
     }
 
-    return originatorIds
-      .map((id, i) => {
+    return uniqueEvents
+      .map((event, i) => {
         const r = reports[i];
         if (!r) return null;
-
-        const submitEvent = latestEventByOriginator[id];
-        const submitBlockTs =
-          submitBlockTimestamps[submitEvent.blockNumber] || null;
-
-        const settleKey = `${id}:${indices[i]}`;
+        const settleKey = `${originatorIds[i]}:${indices[i]}`;
         const settleEvent = latestSettleEvent[settleKey] || null;
-        const settleBlockTs = settleEvent
-          ? settleBlockTimestamps[settleEvent.blockNumber] || null
-          : null;
-
         return {
-          originatorNodeId: id,
+          originatorNodeId: originatorIds[i],
           reportIndex: indices[i],
           startSequenceId: r.startSequenceId,
           endSequenceId: r.endSequenceId,
@@ -310,20 +270,22 @@ async function readLastPayerReports(contract, provider) {
           protocolFeeRate: Number(r.protocolFeeRate),
           payersMerkleRoot: r.payersMerkleRoot,
           nodeIds: r.nodeIds ? Array.from(r.nodeIds).map(Number) : [],
-          signingNodeIds: submitEvent.args.signingNodeIds
-            ? Array.from(submitEvent.args.signingNodeIds).map(Number)
+          signingNodeIds: event.args.signingNodeIds
+            ? Array.from(event.args.signingNodeIds).map(Number)
             : [],
-          submitter: submitTxSenders[submitEvent.transactionHash] || null,
-          submitTxHash: submitEvent.transactionHash,
-          submitTimestamp: submitBlockTs,
+          submitter: txSenders[event.transactionHash] || null,
+          submitTxHash: event.transactionHash,
+          submitTimestamp: blockTimestamps[event.blockNumber] || null,
           settleTxHash: settleEvent ? settleEvent.transactionHash : null,
-          settleTimestamp: settleBlockTs,
+          settleTimestamp: settleEvent
+            ? settleBlockTimestamps[settleEvent.blockNumber] || null
+            : null,
         };
       })
       .filter(Boolean);
   } catch (err) {
     if (process.env.DEBUG) {
-      console.debug(`readLastPayerReports failed: ${err.message}`);
+      console.debug(`readPayerReports failed: ${err.message}`);
     }
     return null;
   }
@@ -602,7 +564,7 @@ const stateReaders = {
         safeCall(contract, "payerRegistry"),
         safeCall(contract, "parameterRegistry"),
         safeCall(contract, "protocolFeeRate"),
-        readLastPayerReports(contract, provider),
+        readPayerReports(contract, provider),
       ]);
 
     // Read feeToken decimals via the payerRegistry contract
