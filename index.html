@@ -1289,6 +1289,7 @@
               <th>Report #</th>
               <th>Seq From</th>
               <th>Seq To</th>
+              <th>Message Count</th>
               <th>End Timestamp</th>
               <th>Submitted</th>
               <th>Settled</th>
@@ -1302,6 +1303,7 @@
               <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Sequential index per originator</th>
               <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">First message sequence in this report</th>
               <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Last message sequence in this report</th>
+              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Seq To minus Seq From</th>
               <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Originator assigned timestamp of the Seq To message</th>
               <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">When this report was submitted on chain</th>
               <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">When all payer fees were fully collected, or No if still pending</th>
@@ -1350,6 +1352,7 @@
             <td style="font-family:var(--mono);font-size:13px">${escapeHtml(r.reportIndex)}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml(fmtInt(r.startSequenceId))}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml(fmtInt(r.endSequenceId))}</td>
+            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(fmtInt(BigInt(r.endSequenceId) - BigInt(r.startSequenceId)))}</td>
             <td style="font-size:12px">${endTime}</td>
             <td style="font-size:12px">${submitCell}</td>
             <td style="font-size:12px">${settleCell}</td>
