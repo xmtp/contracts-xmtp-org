@@ -606,11 +606,12 @@
         });
       }
 
-      function renderAddress(address, explorerUrl) {
+      function renderAddress(address, explorerUrl, truncate = false) {
         if (!address) return '<span style="color:var(--text-dim)">-</span>';
+        const display = truncate ? `${address.slice(0, 6)}…${address.slice(-4)}` : address;
         const link = explorerUrl
-          ? `<a href="${explorerUrl}/address/${address}" target="_blank" rel="noopener">${address}</a>`
-          : address;
+          ? `<a href="${explorerUrl}/address/${address}" target="_blank" rel="noopener" title="${address}">${display}</a>`
+          : `<span title="${address}">${display}</span>`;
         return `<span class="addr">${link}<button class="copy-btn" onclick="copyToClipboard('${address}', this)" title="Copy">\u2398</button></span>`;
       }
 
@@ -1357,7 +1358,7 @@
             <td style="font-size:12px">${submitCell}</td>
             <td style="font-size:12px">${settleCell}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml(formatTokenAmount(r.feesSettled, feeTokenDecimals) ?? r.feesSettled ?? "0")}</td>
-            <td style="font-family:var(--mono);font-size:11px">${renderAddress(r.submitter, explorer)}</td>
+            <td style="font-family:var(--mono);font-size:11px">${renderAddress(r.submitter, explorer, true)}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml((r.nodeIds || []).join(", ") || "-")}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml((r.signingNodeIds || []).join(", ") || "-")}</td>
           </tr>`;
