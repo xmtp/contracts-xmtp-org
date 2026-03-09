@@ -1180,9 +1180,9 @@
       window.__prRender = function () {
         const pr = window.__pr;
         if (!pr) return;
-        const { data, shown, sort2, explorer, feeDecimals } = pr;
+        const { data, shown, sort2, explorer, feeDecimals, mode } = pr;
 
-        // Sort: primary originator asc, secondary configurable
+        // Sort: primary originator asc, secondary configurable (reportIndex desc default)
         const sorted = [...data].sort((a, b) => {
           if (a.originatorNodeId !== b.originatorNodeId)
             return a.originatorNodeId - b.originatorNodeId;
@@ -1193,8 +1193,20 @@
           return b.reportIndex - a.reportIndex;
         });
 
-        const slice = sorted.slice(0, shown);
-        const remaining = Math.max(0, sorted.length - shown);
+        // In 'latest' mode show only the most recent report per originator
+        let slice, remaining;
+        if (mode === "latest") {
+          const seen = new Set();
+          slice = sorted.filter((r) => {
+            if (seen.has(r.originatorNodeId)) return false;
+            seen.add(r.originatorNodeId);
+            return true;
+          });
+          remaining = data.length - slice.length;
+        } else {
+          slice = sorted.slice(0, shown);
+          remaining = Math.max(0, sorted.length - shown);
+        }
 
         const fmtBlockTs = (ts) =>
           ts
@@ -1245,9 +1257,14 @@
 
         const footer = document.getElementById("__pr-footer");
         if (footer) {
-          footer.innerHTML = remaining > 0
-            ? `<button onclick="window.__pr.shown+=20;window.__prRender()" style="margin:10px 18px;padding:6px 14px;background:var(--card-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);cursor:pointer;font-size:12px">Show ${Math.min(20, remaining)} more <span style="color:var(--text-dim)">(${remaining} remaining)</span></button>`
-            : "";
+          const btnStyle = `margin:10px 18px;padding:6px 14px;background:var(--card-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);cursor:pointer;font-size:12px`;
+          if (mode === "latest" && remaining > 0) {
+            footer.innerHTML = `<button onclick="window.__pr.mode='all';window.__pr.shown=20;window.__prRender()" style="${btnStyle}">Show next 20 reports <span style="color:var(--text-dim)">(${remaining} more in history)</span></button>`;
+          } else if (mode === "all" && remaining > 0) {
+            footer.innerHTML = `<button onclick="window.__pr.shown+=20;window.__prRender()" style="${btnStyle}">Show ${Math.min(20, remaining)} more <span style="color:var(--text-dim)">(${remaining} remaining)</span></button>`;
+          } else {
+            footer.innerHTML = "";
+          }
         }
 
         // Update sort indicators
@@ -1584,6 +1601,7 @@
         if (data.state?.lastPayerReports?.length > 0) {
           window.__pr = {
             data: data.state.lastPayerReports,
+            mode: "latest",
             shown: 20,
             sort2: "reportIndex",
             explorer: explorer,
