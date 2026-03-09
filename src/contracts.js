@@ -574,13 +574,37 @@ const stateReaders = {
     };
   },
 
-  PayerReportManager: async (contract, provider) => ({
-    nodeRegistry: await safeCall(contract, "nodeRegistry"),
-    payerRegistry: await safeCall(contract, "payerRegistry"),
-    parameterRegistry: await safeCall(contract, "parameterRegistry"),
-    protocolFeeRate: await safeCall(contract, "protocolFeeRate"),
-    lastPayerReports: await readLastPayerReports(contract, provider),
-  }),
+  PayerReportManager: async (contract, provider) => {
+    const [nodeRegistry, payerRegistry, parameterRegistry, protocolFeeRate, lastPayerReports] =
+      await Promise.all([
+        safeCall(contract, "nodeRegistry"),
+        safeCall(contract, "payerRegistry"),
+        safeCall(contract, "parameterRegistry"),
+        safeCall(contract, "protocolFeeRate"),
+        readLastPayerReports(contract, provider),
+      ]);
+
+    // Read feeToken decimals via the payerRegistry contract
+    let feeTokenDecimals = null;
+    if (payerRegistry) {
+      try {
+        const prContract = new ethers.Contract(
+          payerRegistry,
+          ["function feeToken() view returns (address)"],
+          provider,
+        );
+        const feeToken = await prContract.feeToken();
+        if (feeToken) {
+          const ftContract = new ethers.Contract(feeToken, MINIMAL_ERC20_ABI, provider);
+          feeTokenDecimals = Number(await ftContract.decimals());
+        }
+      } catch {
+        // leave null
+      }
+    }
+
+    return { nodeRegistry, payerRegistry, parameterRegistry, protocolFeeRate, lastPayerReports, feeTokenDecimals };
+  },
 
   RateRegistry: async (contract) => ({
     parameterRegistry: await safeCall(contract, "parameterRegistry"),
