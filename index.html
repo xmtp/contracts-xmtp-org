@@ -1180,7 +1180,7 @@
       window.__prRender = function () {
         const pr = window.__pr;
         if (!pr) return;
-        const { data, shown, sort2, explorer, feeDecimals, mode } = pr;
+        const { data, sort2, explorer, feeDecimals, mode } = pr;
 
         // Sort: primary originator asc, secondary configurable (reportIndex desc default)
         const sorted = [...data].sort((a, b) => {
@@ -1194,7 +1194,7 @@
         });
 
         // In 'latest' mode show only the most recent report per originator
-        let slice, remaining;
+        let slice;
         if (mode === "latest") {
           const seen = new Set();
           slice = sorted.filter((r) => {
@@ -1202,10 +1202,8 @@
             seen.add(r.originatorNodeId);
             return true;
           });
-          remaining = data.length - slice.length;
         } else {
-          slice = sorted.slice(0, shown);
-          remaining = Math.max(0, sorted.length - shown);
+          slice = sorted;
         }
 
         const fmtBlockTs = (ts) =>
@@ -1258,10 +1256,11 @@
         const footer = document.getElementById("__pr-footer");
         if (footer) {
           const btnStyle = `margin:10px 18px;padding:6px 14px;background:var(--card-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);cursor:pointer;font-size:12px`;
-          if (mode === "latest" && remaining > 0) {
-            footer.innerHTML = `<button onclick="window.__pr.mode='all';window.__pr.shown=20;window.__prRender()" style="${btnStyle}">Show next 20 reports <span style="color:var(--text-dim)">(${remaining} more in history)</span></button>`;
-          } else if (mode === "all" && remaining > 0) {
-            footer.innerHTML = `<button onclick="window.__pr.shown+=20;window.__prRender()" style="${btnStyle}">Show ${Math.min(20, remaining)} more <span style="color:var(--text-dim)">(${remaining} remaining)</span></button>`;
+          // How many events haven't been loaded yet
+          const loadedKeys = new Set(pr.data.map((r) => `${r.originatorNodeId}:${r.reportIndex}`));
+          const unloaded = (pr.events || []).filter((e) => !loadedKeys.has(`${e.originatorNodeId}:${e.reportIndex}`));
+          if (unloaded.length > 0) {
+            footer.innerHTML = `<button onclick="window.__prLoadMore()" style="${btnStyle}">Show next 20 reports <span style="color:var(--text-dim)">(${unloaded.length} more in history)</span></button>`;
           } else {
             footer.innerHTML = "";
           }
@@ -1272,6 +1271,42 @@
           const el = document.getElementById(`__pr-sort-${key}`);
           if (el) el.textContent = sort2 === key ? (key === "startSequenceId" ? " ▲" : " ▼") : "";
         });
+      };
+
+      window.__prLoadMore = async function () {
+        const pr = window.__pr;
+        if (!pr) return;
+        const footer = document.getElementById("__pr-footer");
+        const btnStyle = `margin:10px 18px;padding:6px 14px;background:var(--card-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);cursor:pointer;font-size:12px`;
+        if (footer) footer.innerHTML = `<span style="margin:10px 18px;font-size:12px;color:var(--text-dim)">Loading…</span>`;
+
+        const loadedKeys = new Set(pr.data.map((r) => `${r.originatorNodeId}:${r.reportIndex}`));
+        // Sort unloaded events: originator asc, reportIndex desc — consistent with table sort
+        const unloaded = (pr.events || [])
+          .filter((e) => !loadedKeys.has(`${e.originatorNodeId}:${e.reportIndex}`))
+          .sort((a, b) => a.originatorNodeId !== b.originatorNodeId
+            ? a.originatorNodeId - b.originatorNodeId
+            : b.reportIndex - a.reportIndex);
+        const batch = unloaded.slice(0, 20);
+        if (!batch.length) { window.__prRender(); return; }
+
+        try {
+          const params = new URLSearchParams({
+            originatorIds: batch.map((e) => e.originatorNodeId).join(","),
+            indices: batch.map((e) => e.reportIndex).join(","),
+            blockNumbers: batch.map((e) => e.blockNumber).join(","),
+            txHashes: batch.map((e) => e.txHash).join(","),
+            signingNodeIds: JSON.stringify(batch.map((e) => e.signingNodeIds)),
+          });
+          const resp = await fetch(`/api/payer-reports/${pr.env}/${pr.chain}?${params}`);
+          if (!resp.ok) throw new Error(await resp.text());
+          const newReports = await resp.json();
+          pr.data = [...pr.data, ...newReports];
+          pr.mode = "all";
+          window.__prRender();
+        } catch (err) {
+          if (footer) footer.innerHTML = `<span style="margin:10px 18px;font-size:12px;color:var(--red)">Error loading more: ${escapeHtml(err.message)}</span>`;
+        }
       };
 
       function renderContractDetails(data, container) {
@@ -1303,6 +1338,7 @@
             canonicalNodes,
             knownParameters,
             lastPayerReports,
+            payerReportEvents,
             payers,
             feeTokenDecimals,
             totalDeposits,
@@ -1601,9 +1637,10 @@
         if (data.state?.lastPayerReports?.length > 0) {
           window.__pr = {
             data: data.state.lastPayerReports,
+            events: data.state.payerReportEvents || [],
             mode: "latest",
-            shown: 20,
-            sort2: "reportIndex",
+            env: data.environment,
+            chain: data.chain,
             explorer: explorer,
             feeDecimals: data.state.feeTokenDecimals,
           };

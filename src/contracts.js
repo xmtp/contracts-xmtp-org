@@ -151,144 +151,174 @@ async function readParameterValues(contract) {
   }
 }
 
-// Read all payer reports from PayerReportSubmitted events
+// Shared helper: fetch settle event timestamps for a set of (originator, index) pairs
+async function fetchSettleData(contract, provider, pairs) {
+  let settleEvents = [];
+  try {
+    const settleFilter = contract.filters.PayerReportSubsetSettled();
+    try {
+      settleEvents = await contract.queryFilter(settleFilter);
+    } catch {
+      const currentBlock = await provider.getBlockNumber();
+      settleEvents = await contract.queryFilter(
+        settleFilter,
+        Math.max(0, currentBlock - 500000),
+      );
+    }
+  } catch {
+    // Settlement events unavailable
+  }
+
+  const requested = new Set(pairs.map((p) => `${p.originatorNodeId}:${p.reportIndex}`));
+  const latestSettleEvent = {};
+  for (const event of settleEvents) {
+    const key = `${Number(event.args.originatorNodeId)}:${Number(event.args.payerReportIndex)}`;
+    if (requested.has(key) && (!latestSettleEvent[key] || event.blockNumber > latestSettleEvent[key].blockNumber)) {
+      latestSettleEvent[key] = event;
+    }
+  }
+
+  const uniqueSettleBlocks = [...new Set(Object.values(latestSettleEvent).map((e) => e.blockNumber))];
+  const settleBlockData = await Promise.all(
+    uniqueSettleBlocks.map((bn) => provider.getBlock(bn).catch(() => null)),
+  );
+  const settleBlockTimestamps = {};
+  for (let i = 0; i < uniqueSettleBlocks.length; i++) {
+    if (settleBlockData[i]) settleBlockTimestamps[uniqueSettleBlocks[i]] = settleBlockData[i].timestamp;
+  }
+
+  return { latestSettleEvent, settleBlockTimestamps };
+}
+
+// Shared helper: hydrate report structs + block timestamps + tx senders for a set of pairs
+// pairs: [{ originatorNodeId, reportIndex, blockNumber, txHash, signingNodeIds }]
+async function hydrateReportPairs(contract, provider, pairs) {
+  const originatorIds = pairs.map((p) => p.originatorNodeId);
+  const indices = pairs.map((p) => p.reportIndex);
+
+  let reports;
+  try {
+    reports = await contract.getPayerReports(originatorIds, indices);
+  } catch {
+    reports = await Promise.all(
+      pairs.map((p) => safeCall(contract, "getPayerReport", p.originatorNodeId, p.reportIndex)),
+    );
+  }
+
+  const uniqueBlocks = [...new Set(pairs.map((p) => p.blockNumber))];
+  const uniqueTxHashes = [...new Set(pairs.map((p) => p.txHash))];
+
+  const [blockData, txData] = await Promise.all([
+    Promise.all(uniqueBlocks.map((bn) => provider.getBlock(bn).catch(() => null))),
+    Promise.all(uniqueTxHashes.map((hash) => provider.getTransaction(hash).catch(() => null))),
+  ]);
+
+  const blockTimestamps = {};
+  for (let i = 0; i < uniqueBlocks.length; i++) {
+    if (blockData[i]) blockTimestamps[uniqueBlocks[i]] = blockData[i].timestamp;
+  }
+  const txSenders = {};
+  for (let i = 0; i < uniqueTxHashes.length; i++) {
+    if (txData[i]) txSenders[uniqueTxHashes[i]] = txData[i].from;
+  }
+
+  const { latestSettleEvent, settleBlockTimestamps } = await fetchSettleData(contract, provider, pairs);
+
+  return pairs
+    .map((p, i) => {
+      const r = reports[i];
+      if (!r) return null;
+      const settleKey = `${p.originatorNodeId}:${p.reportIndex}`;
+      const settleEvent = latestSettleEvent[settleKey] || null;
+      return {
+        originatorNodeId: p.originatorNodeId,
+        reportIndex: p.reportIndex,
+        startSequenceId: r.startSequenceId,
+        endSequenceId: r.endSequenceId,
+        endMinuteSinceEpoch: Number(r.endMinuteSinceEpoch),
+        feesSettled: r.feesSettled,
+        offset: Number(r.offset),
+        isSettled: r.isSettled,
+        protocolFeeRate: Number(r.protocolFeeRate),
+        payersMerkleRoot: r.payersMerkleRoot,
+        nodeIds: r.nodeIds ? Array.from(r.nodeIds).map(Number) : [],
+        signingNodeIds: p.signingNodeIds || [],
+        submitter: txSenders[p.txHash] || null,
+        submitTxHash: p.txHash,
+        submitTimestamp: blockTimestamps[p.blockNumber] || null,
+        settleTxHash: settleEvent ? settleEvent.transactionHash : null,
+        settleTimestamp: settleEvent ? settleBlockTimestamps[settleEvent.blockNumber] || null : null,
+      };
+    })
+    .filter(Boolean);
+}
+
+// Read latest payer report per originator + all raw event metadata (cheap)
 async function readPayerReports(contract, provider) {
   try {
     const filter = contract.filters.PayerReportSubmitted();
     let events;
-
     try {
       events = await contract.queryFilter(filter);
     } catch {
       const currentBlock = await provider.getBlockNumber();
-      events = await contract.queryFilter(
-        filter,
-        Math.max(0, currentBlock - 500000),
-      );
+      events = await contract.queryFilter(filter, Math.max(0, currentBlock - 500000));
     }
 
-    if (!events || events.length === 0) return [];
+    if (!events || events.length === 0) return { latest: [], events: [] };
 
-    // Deduplicate by originator+reportIndex (events should be unique but guard anyway)
-    const seen = new Set();
-    const uniqueEvents = [];
+    // All raw event metadata (cheap — just event args, no extra RPC)
+    const allEvents = events.map((e) => ({
+      originatorNodeId: Number(e.args.originatorNodeId),
+      reportIndex: Number(e.args.payerReportIndex),
+      blockNumber: e.blockNumber,
+      txHash: e.transactionHash,
+      signingNodeIds: e.args.signingNodeIds ? Array.from(e.args.signingNodeIds).map(Number) : [],
+    }));
+
+    // Latest per originator
+    const latestByOriginator = {};
+    const latestEventByOriginator = {};
     for (const event of events) {
-      const key = `${Number(event.args.originatorNodeId)}:${Number(event.args.payerReportIndex)}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        uniqueEvents.push(event);
+      const id = Number(event.args.originatorNodeId);
+      const idx = Number(event.args.payerReportIndex);
+      if (!latestByOriginator[id] || idx > latestByOriginator[id]) {
+        latestByOriginator[id] = idx;
+        latestEventByOriginator[id] = event;
       }
     }
 
-    const originatorIds = uniqueEvents.map((e) => Number(e.args.originatorNodeId));
-    const indices = uniqueEvents.map((e) => Number(e.args.payerReportIndex));
+    const latestPairs = Object.keys(latestByOriginator).map(Number).map((id) => {
+      const event = latestEventByOriginator[id];
+      return {
+        originatorNodeId: id,
+        reportIndex: latestByOriginator[id],
+        blockNumber: event.blockNumber,
+        txHash: event.transactionHash,
+        signingNodeIds: event.args.signingNodeIds ? Array.from(event.args.signingNodeIds).map(Number) : [],
+      };
+    });
 
-    // Batch fetch actual report structs
-    let reports;
-    try {
-      reports = await contract.getPayerReports(originatorIds, indices);
-    } catch {
-      reports = await Promise.all(
-        originatorIds.map((id, i) =>
-          safeCall(contract, "getPayerReport", id, indices[i]),
-        ),
-      );
-    }
-
-    // Fetch block timestamps and submit tx senders in parallel (deduped)
-    const txHashes = uniqueEvents.map((e) => e.transactionHash);
-    const blockNumbers = uniqueEvents.map((e) => e.blockNumber);
-    const uniqueBlocks = [...new Set(blockNumbers)];
-    const uniqueTxHashes = [...new Set(txHashes)];
-
-    const [blockData, txData] = await Promise.all([
-      Promise.all(uniqueBlocks.map((bn) => provider.getBlock(bn).catch(() => null))),
-      Promise.all(uniqueTxHashes.map((hash) => provider.getTransaction(hash).catch(() => null))),
-    ]);
-
-    const blockTimestamps = {};
-    for (let i = 0; i < uniqueBlocks.length; i++) {
-      if (blockData[i]) blockTimestamps[uniqueBlocks[i]] = blockData[i].timestamp;
-    }
-
-    const txSenders = {};
-    for (let i = 0; i < uniqueTxHashes.length; i++) {
-      if (txData[i]) txSenders[uniqueTxHashes[i]] = txData[i].from;
-    }
-
-    // Query settlement events
-    let settleEvents = [];
-    try {
-      const settleFilter = contract.filters.PayerReportSubsetSettled();
-      try {
-        settleEvents = await contract.queryFilter(settleFilter);
-      } catch {
-        const currentBlock = await provider.getBlockNumber();
-        settleEvents = await contract.queryFilter(
-          settleFilter,
-          Math.max(0, currentBlock - 500000),
-        );
-      }
-    } catch {
-      // Settlement events unavailable — proceed without them
-    }
-
-    const latestSettleEvent = {};
-    for (const event of settleEvents) {
-      const key = `${Number(event.args.originatorNodeId)}:${Number(event.args.payerReportIndex)}`;
-      if (!latestSettleEvent[key] || event.blockNumber > latestSettleEvent[key].blockNumber) {
-        latestSettleEvent[key] = event;
-      }
-    }
-
-    const uniqueSettleBlocks = [
-      ...new Set(Object.values(latestSettleEvent).map((e) => e.blockNumber)),
-    ];
-    const settleBlockData = await Promise.all(
-      uniqueSettleBlocks.map((bn) => provider.getBlock(bn).catch(() => null)),
-    );
-    const settleBlockTimestamps = {};
-    for (let i = 0; i < uniqueSettleBlocks.length; i++) {
-      if (settleBlockData[i]) settleBlockTimestamps[uniqueSettleBlocks[i]] = settleBlockData[i].timestamp;
-    }
-
-    return uniqueEvents
-      .map((event, i) => {
-        const r = reports[i];
-        if (!r) return null;
-        const settleKey = `${originatorIds[i]}:${indices[i]}`;
-        const settleEvent = latestSettleEvent[settleKey] || null;
-        return {
-          originatorNodeId: originatorIds[i],
-          reportIndex: indices[i],
-          startSequenceId: r.startSequenceId,
-          endSequenceId: r.endSequenceId,
-          endMinuteSinceEpoch: Number(r.endMinuteSinceEpoch),
-          feesSettled: r.feesSettled,
-          offset: Number(r.offset),
-          isSettled: r.isSettled,
-          protocolFeeRate: Number(r.protocolFeeRate),
-          payersMerkleRoot: r.payersMerkleRoot,
-          nodeIds: r.nodeIds ? Array.from(r.nodeIds).map(Number) : [],
-          signingNodeIds: event.args.signingNodeIds
-            ? Array.from(event.args.signingNodeIds).map(Number)
-            : [],
-          submitter: txSenders[event.transactionHash] || null,
-          submitTxHash: event.transactionHash,
-          submitTimestamp: blockTimestamps[event.blockNumber] || null,
-          settleTxHash: settleEvent ? settleEvent.transactionHash : null,
-          settleTimestamp: settleEvent
-            ? settleBlockTimestamps[settleEvent.blockNumber] || null
-            : null,
-        };
-      })
-      .filter(Boolean);
+    const latest = await hydrateReportPairs(contract, provider, latestPairs);
+    return { latest, events: allEvents };
   } catch (err) {
     if (process.env.DEBUG) {
       console.debug(`readPayerReports failed: ${err.message}`);
     }
     return null;
   }
+}
+
+// Hydrate specific report pairs on demand (for paginated load-more)
+async function readPayerReportsBatch(env, chain, pairs) {
+  const contractDef = [...SETTLEMENT_CONTRACTS, ...APP_CONTRACTS]
+    .find((c) => c.name === "PayerReportManager");
+  if (!contractDef) throw new Error("PayerReportManager contract definition not found");
+  const address = getContractAddress(env, contractDef);
+  if (!address) throw new Error(`No PayerReportManager address for ${env}`);
+  const provider = getProvider(env, chain);
+  const contract = getContract(address, contractDef.abiFile, provider);
+  return hydrateReportPairs(contract, provider, pairs);
 }
 
 // Helper: query events with fallback to recent blocks on range errors
@@ -558,7 +588,7 @@ const stateReaders = {
   },
 
   PayerReportManager: async (contract, provider) => {
-    const [nodeRegistry, payerRegistry, parameterRegistry, protocolFeeRate, lastPayerReports] =
+    const [nodeRegistry, payerRegistry, parameterRegistry, protocolFeeRate, prData] =
       await Promise.all([
         safeCall(contract, "nodeRegistry"),
         safeCall(contract, "payerRegistry"),
@@ -566,6 +596,8 @@ const stateReaders = {
         safeCall(contract, "protocolFeeRate"),
         readPayerReports(contract, provider),
       ]);
+    const lastPayerReports = prData ? prData.latest : null;
+    const payerReportEvents = prData ? prData.events : [];
 
     // Read feeToken decimals via the payerRegistry contract
     let feeTokenDecimals = null;
@@ -586,7 +618,7 @@ const stateReaders = {
       }
     }
 
-    return { nodeRegistry, payerRegistry, parameterRegistry, protocolFeeRate, lastPayerReports, feeTokenDecimals };
+    return { nodeRegistry, payerRegistry, parameterRegistry, protocolFeeRate, lastPayerReports, payerReportEvents, feeTokenDecimals };
   },
 
   RateRegistry: async (contract) => ({
@@ -938,4 +970,5 @@ module.exports = {
   decodeParameterValue,
   getProvider,
   getContract,
+  readPayerReportsBatch,
 };
