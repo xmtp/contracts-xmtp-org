@@ -1283,19 +1283,34 @@
       <div class="detail-card-header">Last Payer Reports <span style="color:var(--text-dim);font-weight:400;font-size:12px">${lastPayerReports.length} originator${lastPayerReports.length !== 1 ? "s" : ""}</span></div>
       <div class="detail-card-body"><div class="table-wrapper">
         <table style="margin:0">
-          <thead><tr>
-            <th>Originator</th>
-            <th>Report #</th>
-            <th>Seq From</th>
-            <th>Seq To</th>
-            <th>Last Envelope Timestamp</th>
-            <th>Submitted</th>
-            <th>Settled</th>
-            <th>Fees Settled (xUSD)</th>
-            <th>Submitter</th>
-            <th>Node IDs</th>
-            <th>Signing Node IDs</th>
-          </tr></thead><tbody>`;
+          <thead>
+            <tr>
+              <th>Originator</th>
+              <th>Report #</th>
+              <th>Seq From</th>
+              <th>Seq To</th>
+              <th>Last Envelope Timestamp</th>
+              <th>Submitted</th>
+              <th>Settled</th>
+              <th>Fees Settled (xUSD)</th>
+              <th>Submitter</th>
+              <th>Node IDs</th>
+              <th>Signing Node IDs</th>
+            </tr>
+            <tr style="border-top:none">
+              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3">Entry node that first received the messages</th>
+              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3">Sequential index per originator</th>
+              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3">First message sequence in this report</th>
+              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3">Last message sequence in this report</th>
+              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3">End of the reporting period</th>
+              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3">When this report was submitted on-chain</th>
+              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3">Whether all payer fees have been collected</th>
+              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3">xUSD collected from payers so far</th>
+              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3">Address that called submit() — anyone can relay</th>
+              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3">Canonical nodes at submission time — share the fees</th>
+              <th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3">Nodes that signed to attest this report (majority required)</th>
+            </tr>
+          </thead><tbody>`;
 
             for (const r of lastPayerReports) {
               const endTime =
