@@ -91,7 +91,6 @@
       /* Content */
       .content {
         padding: 24px;
-        max-width: 1600px;
         margin: 0 auto;
       }
       .panel {
@@ -142,12 +141,14 @@
         position: sticky;
         top: 0;
         z-index: 1;
+        white-space: nowrap;
       }
       td {
         padding: 6px 12px;
         border: 1px solid var(--border);
         vertical-align: middle;
         line-height: 22px;
+        white-space: nowrap;
       }
       tr:hover td {
         background: var(--bg-hover);
@@ -310,12 +311,13 @@
         border-bottom: none;
       }
       .detail-key {
-        width: 220px;
-        min-width: 220px;
+        width: 240px;
+        min-width: 240px;
         padding: 10px 18px;
         color: var(--text-dim);
         background: rgba(0, 0, 0, 0.15);
         font-weight: 500;
+        white-space: nowrap;
       }
       .detail-val {
         flex: 1;
@@ -323,6 +325,12 @@
         font-family: var(--mono);
         font-size: 16px;
         word-break: break-all;
+      }
+      @media (min-width: 1200px) {
+        .detail-key {
+          width: 280px;
+          min-width: 280px;
+        }
       }
 
       /* Drift selectors (temporarily disabled)
@@ -403,6 +411,16 @@
       /* Responsive */
       .table-wrapper {
         overflow-x: auto;
+      }
+      @media (min-width: 1200px) {
+        .content {
+          padding: 24px 40px;
+        }
+      }
+      @media (min-width: 1600px) {
+        .content {
+          padding: 24px 60px;
+        }
       }
 
       /* Parameter History tile */
@@ -1295,7 +1313,7 @@
             <td style="font-family:var(--mono);font-size:11px">${renderAddress(r.submitter, explorer, true)}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml((r.nodeIds || []).join(", ") || "-")}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml((r.signingNodeIds || []).join(", ") || "-")}</td>
-            <td style="font-family:var(--mono);font-size:11px;word-break:break-all">${escapeHtml(r.digest || "-")}</td>
+            <td style="font-family:var(--mono);font-size:11px;word-break:break-all">${r.digest ? `<span class="addr"><span title="${r.digest}" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle;cursor:pointer" onclick="this.style.maxWidth=this.style.maxWidth?'':'120px';this.style.whiteSpace=this.style.maxWidth?'nowrap':'normal'">${escapeHtml(r.digest)}</span><button class="copy-btn" onclick="copyToClipboard('${r.digest}', this)" title="Copy">\u2398</button></span>` : "-"}</td>
           </tr>`;
         }
 
@@ -1661,7 +1679,7 @@
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml(node.nodeId)}</td>
             <td>${renderAddress(node.signer, explorer)}</td>
             <td style="text-align:center">${canonicalBadge}</td>
-            <td style="font-family:var(--mono);font-size:12px;word-break:break-all">${escapeHtml(node.httpAddress || "-")}</td>
+            <td style="font-family:var(--mono);font-size:12px;word-break:break-all;white-space:normal">${escapeHtml(node.httpAddress || "-")}</td>
           </tr>`;
             }
 
@@ -1958,7 +1976,15 @@
 
           html += `<div class="detail-card">`;
           html += `<div class="detail-card-header">${escapeHtml(env)}</div>`;
-          html += `<div class="detail-card-body"><div class="table-wrapper"><table>`;
+          html += `<div class="detail-card-body"><div class="table-wrapper"><table>
+          <colgroup>
+            <col style="width:10%">
+            <col style="width:15%">
+            <col style="width:35%">
+            <col style="width:13%">
+            <col style="width:13%">
+            <col style="width:14%">
+          </colgroup>`;
           html += `<thead>
             <tr>
               <th>Type</th>
