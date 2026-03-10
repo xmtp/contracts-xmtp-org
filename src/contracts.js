@@ -621,10 +621,32 @@ const stateReaders = {
     return { nodeRegistry, payerRegistry, parameterRegistry, protocolFeeRate, lastPayerReports, payerReportEvents, feeTokenDecimals };
   },
 
-  RateRegistry: async (contract) => ({
-    parameterRegistry: await safeCall(contract, "parameterRegistry"),
-    ratesCount: await safeCall(contract, "getRatesCount"),
-  }),
+  RateRegistry: async (contract) => {
+    const parameterRegistry = await safeCall(contract, "parameterRegistry");
+    const ratesCount = await safeCall(contract, "getRatesCount");
+    let rates = null;
+    let ratesOffset = null;
+    if (ratesCount !== null) {
+      const count = Number(ratesCount);
+      const fromIndex = Math.max(0, count - 50);
+      const fetchCount = count - fromIndex;
+      if (fetchCount > 0) {
+        const rawRates = await safeCall(contract, "getRates", fromIndex, fetchCount);
+        rates = rawRates ? rawRates.map((r) => ({
+          messageFee: r.messageFee,
+          storageFee: r.storageFee,
+          congestionFee: r.congestionFee,
+          targetRatePerMinute: r.targetRatePerMinute,
+          startTime: r.startTime,
+        })) : null;
+        ratesOffset = fromIndex;
+      } else {
+        rates = [];
+        ratesOffset = 0;
+      }
+    }
+    return { parameterRegistry, ratesCount, rates, ratesOffset };
+  },
 
   DistributionManager: async (contract) => ({
     nodeRegistry: await safeCall(contract, "nodeRegistry"),
@@ -961,6 +983,25 @@ async function getAllBalances() {
   return results;
 }
 
+// Fetch a batch of rates from RateRegistry on demand (for paginated load-more)
+async function readRatesBatch(env, chain, fromIndex, count) {
+  const contractDef = [...SETTLEMENT_CONTRACTS, ...APP_CONTRACTS]
+    .find((c) => c.name === "RateRegistry");
+  if (!contractDef) throw new Error("RateRegistry contract definition not found");
+  const address = getContractAddress(env, contractDef);
+  if (!address) throw new Error(`No RateRegistry address for ${env}`);
+  const provider = getProvider(env, chain);
+  const contract = getContract(address, contractDef.abiFile, provider);
+  const rawRates = await contract.getRates(fromIndex, count);
+  return rawRates.map((r) => ({
+    messageFee: r.messageFee.toString(),
+    storageFee: r.storageFee.toString(),
+    congestionFee: r.congestionFee.toString(),
+    targetRatePerMinute: r.targetRatePerMinute.toString(),
+    startTime: r.startTime.toString(),
+  }));
+}
+
 module.exports = {
   getAllVersions,
   getAllPausedStatus,
@@ -971,4 +1012,5 @@ module.exports = {
   getProvider,
   getContract,
   readPayerReportsBatch,
+  readRatesBatch,
 };
