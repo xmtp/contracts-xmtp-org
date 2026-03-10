@@ -224,6 +224,24 @@ async function hydrateReportPairs(contract, provider, pairs) {
 
   const { latestSettleEvent, settleBlockTimestamps } = await fetchSettleData(contract, provider, pairs);
 
+  // Compute EIP-712 digests for each report in parallel
+  const digests = await Promise.all(
+    pairs.map((p, i) => {
+      const r = reports[i];
+      if (!r) return Promise.resolve(null);
+      return safeCall(
+        contract,
+        "getPayerReportDigest",
+        p.originatorNodeId,
+        r.startSequenceId,
+        r.endSequenceId,
+        r.endMinuteSinceEpoch,
+        r.payersMerkleRoot,
+        r.nodeIds ? Array.from(r.nodeIds) : [],
+      ).catch(() => null);
+    }),
+  );
+
   return pairs
     .map((p, i) => {
       const r = reports[i];
@@ -248,6 +266,7 @@ async function hydrateReportPairs(contract, provider, pairs) {
         submitTimestamp: blockTimestamps[p.blockNumber] || null,
         settleTxHash: settleEvent ? settleEvent.transactionHash : null,
         settleTimestamp: settleEvent ? settleBlockTimestamps[settleEvent.blockNumber] || null : null,
+        digest: digests[i] || null,
       };
     })
     .filter(Boolean);

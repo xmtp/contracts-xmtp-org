@@ -1209,7 +1209,8 @@
               String(r.feesSettled || "").includes(filter) ||
               (r.submitter || "").toLowerCase().includes(filter) ||
               (r.nodeIds || []).join(", ").includes(filter) ||
-              (r.signingNodeIds || []).join(", ").includes(filter)
+              (r.signingNodeIds || []).join(", ").includes(filter) ||
+              (r.digest || "").toLowerCase().includes(filter)
             );
           });
         }
@@ -1294,6 +1295,7 @@
             <td style="font-family:var(--mono);font-size:11px">${renderAddress(r.submitter, explorer, true)}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml((r.nodeIds || []).join(", ") || "-")}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml((r.signingNodeIds || []).join(", ") || "-")}</td>
+            <td style="font-family:var(--mono);font-size:11px;word-break:break-all">${escapeHtml(r.digest || "-")}</td>
           </tr>`;
         }
 
@@ -1693,6 +1695,7 @@
               <th>Submitter<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Address that called submit(). Anyone can relay</div></th>
               <th>Node IDs<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Canonical nodes at submission time. Share the fees</div></th>
               <th>Signing Node IDs<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Nodes that signed to attest this report (majority required)</div></th>
+              <th>Report Digest<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">EIP-712 digest of the payer report</div></th>
             </tr>
           </thead>
           <tbody id="__pr-tbody"></tbody>
