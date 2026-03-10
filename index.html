@@ -1177,20 +1177,67 @@
       }
 
       // Payer reports interactive table — called on initial render and on sort/page changes
+      window.__prToggleSort = function (key) {
+        const pr = window.__pr;
+        if (!pr) return;
+        if (pr.sortKey === key) {
+          // Cycle: asc → desc → reset
+          if (pr.sortDir === "asc") pr.sortDir = "desc";
+          else { pr.sortKey = null; pr.sortDir = null; }
+        } else {
+          pr.sortKey = key;
+          pr.sortDir = "asc";
+        }
+        window.__prRender();
+      };
+
       window.__prRender = function () {
         const pr = window.__pr;
         if (!pr) return;
-        const { data, sort2, explorer, feeDecimals, mode } = pr;
+        const { data, explorer, feeDecimals, mode, sortKey, sortDir } = pr;
+        const filter = (pr.filter || "").toLowerCase().trim();
 
-        // Sort: primary originator asc, secondary configurable (reportIndex desc default)
-        const sorted = [...data].sort((a, b) => {
-          if (a.originatorNodeId !== b.originatorNodeId)
-            return a.originatorNodeId - b.originatorNodeId;
-          if (sort2 === "startSequenceId") {
-            const diff = BigInt(a.startSequenceId) - BigInt(b.startSequenceId);
-            return diff < 0n ? -1 : diff > 0n ? 1 : 0;
+        // Filter
+        let filtered = data;
+        if (filter) {
+          filtered = data.filter((r) => {
+            return (
+              String(r.originatorNodeId).includes(filter) ||
+              String(r.reportIndex).includes(filter) ||
+              String(r.startSequenceId).includes(filter) ||
+              String(r.endSequenceId).includes(filter) ||
+              String(r.feesSettled || "").includes(filter) ||
+              (r.submitter || "").toLowerCase().includes(filter) ||
+              (r.nodeIds || []).join(", ").includes(filter) ||
+              (r.signingNodeIds || []).join(", ").includes(filter)
+            );
+          });
+        }
+
+        // Sort
+        const compareBigInt = (a, b) => { const d = BigInt(a) - BigInt(b); return d < 0n ? -1 : d > 0n ? 1 : 0; };
+        const compareNum = (a, b) => (a || 0) - (b || 0);
+        const sorted = [...filtered].sort((a, b) => {
+          if (!sortKey || !sortDir) {
+            // Default: originator asc, reportIndex desc
+            if (a.originatorNodeId !== b.originatorNodeId)
+              return a.originatorNodeId - b.originatorNodeId;
+            return b.reportIndex - a.reportIndex;
           }
-          return b.reportIndex - a.reportIndex;
+          let cmp = 0;
+          switch (sortKey) {
+            case "originatorNodeId": cmp = compareNum(a.originatorNodeId, b.originatorNodeId); break;
+            case "reportIndex": cmp = compareNum(a.reportIndex, b.reportIndex); break;
+            case "startSequenceId": cmp = compareBigInt(a.startSequenceId || "0", b.startSequenceId || "0"); break;
+            case "endSequenceId": cmp = compareBigInt(a.endSequenceId || "0", b.endSequenceId || "0"); break;
+            case "messageCount": cmp = compareBigInt(BigInt(a.endSequenceId || "0") - BigInt(a.startSequenceId || "0"), BigInt(b.endSequenceId || "0") - BigInt(b.startSequenceId || "0")); break;
+            case "endMinuteSinceEpoch": cmp = compareNum(a.endMinuteSinceEpoch, b.endMinuteSinceEpoch); break;
+            case "submitTimestamp": cmp = compareNum(a.submitTimestamp, b.submitTimestamp); break;
+            case "settleTimestamp": cmp = compareNum(a.settleTimestamp || 0, b.settleTimestamp || 0); break;
+            case "feesSettled": cmp = compareBigInt(a.feesSettled || "0", b.feesSettled || "0"); break;
+            default: break;
+          }
+          return sortDir === "desc" ? -cmp : cmp;
         });
 
         // In 'latest' mode show only the most recent report per originator
@@ -1267,10 +1314,20 @@
         }
 
         // Update sort indicators
-        ["reportIndex", "startSequenceId"].forEach((key) => {
-          const el = document.getElementById(`__pr-sort-${key}`);
-          if (el) el.textContent = sort2 === key ? (key === "startSequenceId" ? " ▲" : " ▼") : "";
+        document.querySelectorAll("[id^='__pr-sort-']").forEach((el) => {
+          const key = el.id.replace("__pr-sort-", "");
+          if (key === sortKey) {
+            el.textContent = sortDir === "asc" ? " ▲" : " ▼";
+          } else {
+            el.textContent = "";
+          }
         });
+
+        // Update filter count
+        const countEl = document.getElementById("__pr-filter-count");
+        if (countEl) {
+          countEl.textContent = filter ? `${slice.length} of ${data.length} shown` : `${slice.length} total`;
+        }
       };
 
       window.__prLoadMore = async function () {
@@ -1306,6 +1363,107 @@
           window.__prRender();
         } catch (err) {
           if (footer) footer.innerHTML = `<span style="margin:10px 18px;font-size:12px;color:var(--red)">Error loading more: ${escapeHtml(err.message)}</span>`;
+        }
+      };
+
+      // Payers interactive table — called on initial render and on sort/filter changes
+      window.__payersToggleSort = function (key) {
+        const s = window.__payersState;
+        if (!s) return;
+        if (s.sortKey === key) {
+          if (s.sortDir === "asc") s.sortDir = "desc";
+          else { s.sortKey = null; s.sortDir = null; }
+        } else {
+          s.sortKey = key;
+          s.sortDir = "asc";
+        }
+        window.__payersRender();
+      };
+
+      window.__payersRender = function () {
+        const s = window.__payersState;
+        if (!s) return;
+        const { payers, explorer, decimals, sortKey, sortDir } = s;
+        const sym = decimals !== null ? " xUSD" : "";
+        const filter = (s.filter || "").toLowerCase().trim();
+
+        const fmtAmt = (val) => {
+          const f = formatTokenAmount(val, decimals);
+          return f !== null
+            ? `<span style="font-family:var(--mono);font-size:12px">${escapeHtml(f)}${sym}</span>`
+            : '<span style="color:var(--text-dim)">-</span>';
+        };
+
+        // Filter
+        let filtered = payers;
+        if (filter) {
+          filtered = payers.filter((p) =>
+            (p.address || "").toLowerCase().includes(filter) ||
+            (formatTokenAmount(p.balance, decimals) || "").includes(filter) ||
+            (formatTokenAmount(p.totalDeposited, decimals) || "").includes(filter) ||
+            (formatTokenAmount(p.totalSettled, decimals) || "").includes(filter)
+          );
+        }
+
+        // Sort
+        const compareBigInt = (a, b) => { const d = BigInt(a ?? "0") - BigInt(b ?? "0"); return d < 0n ? -1 : d > 0n ? 1 : 0; };
+        const sorted = [...filtered].sort((a, b) => {
+          if (!sortKey || !sortDir) {
+            // Default: balance ascending
+            return compareBigInt(a.balance, b.balance);
+          }
+          let cmp = 0;
+          switch (sortKey) {
+            case "balance": cmp = compareBigInt(a.balance, b.balance); break;
+            case "totalDeposited": cmp = compareBigInt(a.totalDeposited, b.totalDeposited); break;
+            case "totalSettled": cmp = compareBigInt(a.totalSettled, b.totalSettled); break;
+            case "pendingWithdrawal": cmp = compareBigInt(a.pendingWithdrawal, b.pendingWithdrawal); break;
+            case "withdrawableTimestamp": cmp = (a.withdrawableTimestamp || 0) - (b.withdrawableTimestamp || 0); break;
+            default: break;
+          }
+          return sortDir === "desc" ? -cmp : cmp;
+        });
+
+        let rows = "";
+        for (const p of sorted) {
+          const bal = p.balance !== null && p.balance !== undefined ? BigInt(p.balance) : null;
+          const isDebt = bal !== null && bal < 0n;
+          const balStr = formatTokenAmount(p.balance, decimals);
+          const balDisplay = balStr !== null
+            ? `<span style="font-family:var(--mono);font-size:12px;color:${isDebt ? "var(--red)" : "var(--green)"}">${escapeHtml(balStr)}${sym}</span>`
+            : '<span style="color:var(--text-dim)">-</span>';
+
+          const hasPending = p.pendingWithdrawal && BigInt(p.pendingWithdrawal) > 0n;
+          const pendingDisplay = hasPending ? fmtAmt(p.pendingWithdrawal) : '<span style="color:var(--text-dim)">-</span>';
+          const withdrawableDisplay = hasPending && p.withdrawableTimestamp
+            ? `<span style="font-size:12px">${new Date(p.withdrawableTimestamp * 1000).toISOString().replace("T", " ").replace(".000Z", " UTC")}</span>`
+            : '<span style="color:var(--text-dim)">-</span>';
+
+          rows += `<tr>
+            <td>${renderAddress(p.address, explorer)}</td>
+            <td>${balDisplay}</td>
+            <td>${fmtAmt(p.totalDeposited)}</td>
+            <td>${fmtAmt(p.totalSettled)}</td>
+            <td>${pendingDisplay}</td>
+            <td>${withdrawableDisplay}</td>
+          </tr>`;
+        }
+
+        const tbody = document.getElementById("__payers-tbody");
+        if (tbody) tbody.innerHTML = rows;
+
+        // Update sort indicators
+        document.querySelectorAll("[id^='__payers-sort-']").forEach((el) => {
+          const key = el.id.replace("__payers-sort-", "");
+          el.textContent = key === sortKey ? (sortDir === "asc" ? " ▲" : " ▼") : "";
+        });
+
+        // Update count
+        const countEl = document.getElementById("__payers-filter-count");
+        if (countEl) {
+          countEl.textContent = filter
+            ? `${sorted.length} of ${payers.length} payer${payers.length !== 1 ? "s" : ""}`
+            : `${payers.length} payer${payers.length !== 1 ? "s" : ""}`;
         }
       };
 
@@ -1511,24 +1669,27 @@
           // Payer reports
           if (lastPayerReports !== undefined && lastPayerReports !== null) {
             if (lastPayerReports.length > 0) {
-              const thDesc = (text) => `<th style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:0;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">${text}</th>`;
               const sortBtn = (key) => `<span id="__pr-sort-${key}" style="color:var(--text-dim)"></span>`;
-              const thSort = (label, key, desc) => `<th style="cursor:pointer;user-select:none" onclick="window.__pr.sort2='${key}';window.__prRender()" title="Sort by ${label}">${label}${sortBtn(key)}<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">${desc}</div></th>`;
+              const thSort = (label, key, desc) => `<th style="cursor:pointer;user-select:none" onclick="window.__prToggleSort('${key}')" title="Sort by ${label}">${label}${sortBtn(key)}<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">${desc}</div></th>`;
               html += `<div class="detail-card">
-      <div class="detail-card-header">Payer Reports <span style="color:var(--text-dim);font-weight:400;font-size:12px">${lastPayerReports.length} total</span></div>
+      <div class="detail-card-header" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span>Payer Reports</span>
+        <span id="__pr-filter-count" style="color:var(--text-dim);font-weight:400;font-size:12px">${lastPayerReports.length} total</span>
+        <input id="__pr-filter" type="text" placeholder="Search reports…" oninput="window.__pr.filter=this.value;window.__prRender()" style="margin-left:auto;padding:4px 10px;background:var(--card-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;font-family:var(--mono);width:220px">
+      </div>
       <div class="detail-card-body"><div class="table-wrapper">
         <table style="margin:0">
           <thead>
             <tr>
-              <th>Originator<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Entry node that first received the messages</div></th>
+              ${thSort("Originator", "originatorNodeId", "Entry node that first received the messages")}
               ${thSort("Report #", "reportIndex", "Sequential index per originator")}
               ${thSort("Seq From", "startSequenceId", "First message sequence in this report")}
-              <th>Seq To<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Last message sequence in this report</div></th>
-              <th>Message Count<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Seq To minus Seq From</div></th>
-              <th>End Timestamp<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Originator assigned timestamp of the Seq To message</div></th>
-              <th>Submitted<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">When this report was submitted on chain</div></th>
-              <th>Settled<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">When all payer fees were fully collected, or No if still pending</div></th>
-              <th>Fees Settled (xUSD)<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Total xUSD deducted from payer prepaid balances for messages in this range, now claimable by nodes</div></th>
+              ${thSort("Seq To", "endSequenceId", "Last message sequence in this report")}
+              ${thSort("Message Count", "messageCount", "Seq To minus Seq From")}
+              ${thSort("End Timestamp", "endMinuteSinceEpoch", "Originator assigned timestamp of the Seq To message")}
+              ${thSort("Submitted", "submitTimestamp", "When this report was submitted on chain")}
+              ${thSort("Settled", "settleTimestamp", "When all payer fees were fully collected, or No if still pending")}
+              ${thSort("Fees Settled (xUSD)", "feesSettled", "Total xUSD deducted from payer prepaid balances for messages in this range, now claimable by nodes")}
               <th>Submitter<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Address that called submit(). Anyone can relay</div></th>
               <th>Node IDs<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Canonical nodes at submission time. Share the fees</div></th>
               <th>Signing Node IDs<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Nodes that signed to attest this report (majority required)</div></th>
@@ -1622,24 +1783,14 @@
 
           // Payers table
           if (payers && payers.length > 0) {
-            const payerDecimals =
-              feeTokenDecimals !== undefined && feeTokenDecimals !== null
-                ? parseInt(feeTokenDecimals)
-                : null;
-            const sym = payerDecimals !== null ? " xUSD" : "";
-            const fmtAmt = (val) => {
-              const s = formatTokenAmount(val, payerDecimals);
-              return s !== null
-                ? `<span style="font-family:var(--mono);font-size:12px">${escapeHtml(s)}${sym}</span>`
-                : '<span style="color:var(--text-dim)">-</span>';
-            };
-            const sortedPayers = [...payers].sort((a, b) => {
-              const ba = BigInt(a.balance ?? "0");
-              const bb = BigInt(b.balance ?? "0");
-              return ba < bb ? -1 : ba > bb ? 1 : 0;
-            });
+            const payerSortBtn = (key) => `<span id="__payers-sort-${key}" style="color:var(--text-dim)"></span>`;
+            const payerThSort = (label, key, badge) => `<th style="cursor:pointer;user-select:none" onclick="window.__payersToggleSort('${key}')" title="Sort by ${label}">${label} ${badge || ""}${payerSortBtn(key)}</th>`;
             html += `<div class="detail-card">
-      <div class="detail-card-header">Payers <span style="color:var(--text-dim);font-weight:400;font-size:12px">${payers.length} payer${payers.length !== 1 ? "s" : ""}</span></div>
+      <div class="detail-card-header" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span>Payers</span>
+        <span id="__payers-filter-count" style="color:var(--text-dim);font-weight:400;font-size:12px">${payers.length} payer${payers.length !== 1 ? "s" : ""}</span>
+        <input id="__payers-filter" type="text" placeholder="Search payers…" oninput="window.__payersState.filter=this.value;window.__payersRender()" style="margin-left:auto;padding:4px 10px;background:var(--card-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;font-family:var(--mono);width:220px">
+      </div>
       <div class="detail-card-body">
         <div style="padding:12px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-dim);background:rgba(88,166,255,0.04);display:flex;flex-direction:column;gap:6px">
           <div><strong style="color:var(--text)">Balance</strong>: <span style="font-family:var(--mono)">getBalance(payer)</span>. Current net position: deposits minus settled fees minus withdrawals. Green if healthy, red if in debt.</div>
@@ -1652,46 +1803,13 @@
         <table style="margin:0">
           <thead><tr>
             <th>Payer</th>
-            <th>Balance ${fnBadge}</th>
-            <th>Total Deposited ${calcBadge}</th>
-            <th>Total Settled ${calcBadge}</th>
-            <th>Pending Withdrawal ${fnBadge}</th>
-            <th>Withdrawable At ${fnBadge}</th>
-          </tr></thead><tbody>`;
-
-            for (const p of sortedPayers) {
-              const bal =
-                p.balance !== null && p.balance !== undefined
-                  ? BigInt(p.balance)
-                  : null;
-              const isDebt = bal !== null && bal < 0n;
-              const balStr = formatTokenAmount(p.balance, payerDecimals);
-              const balDisplay =
-                balStr !== null
-                  ? `<span style="font-family:var(--mono);font-size:12px;color:${isDebt ? "var(--red)" : "var(--green)"}">${escapeHtml(balStr)}${sym}</span>`
-                  : '<span style="color:var(--text-dim)">-</span>';
-
-              const hasPending =
-                p.pendingWithdrawal && BigInt(p.pendingWithdrawal) > 0n;
-              const pendingDisplay = hasPending
-                ? fmtAmt(p.pendingWithdrawal)
-                : '<span style="color:var(--text-dim)">-</span>';
-              const withdrawableDisplay =
-                hasPending && p.withdrawableTimestamp
-                  ? `<span style="font-size:12px">${new Date(p.withdrawableTimestamp * 1000).toISOString().replace("T", " ").replace(".000Z", " UTC")}</span>`
-                  : '<span style="color:var(--text-dim)">-</span>';
-
-              html += `<tr>
-            <td>${renderAddress(p.address, explorer)}</td>
-            <td>${balDisplay}</td>
-            <td>${fmtAmt(p.totalDeposited)}</td>
-            <td>${fmtAmt(p.totalSettled)}</td>
-            <td>${pendingDisplay}</td>
-            <td>${withdrawableDisplay}</td>
-          </tr>`;
-            }
-
-            html += `</tbody></table></div></div></div></div>`;
+            ${payerThSort("Balance", "balance", fnBadge)}
+            ${payerThSort("Total Deposited", "totalDeposited", calcBadge)}
+            ${payerThSort("Total Settled", "totalSettled", calcBadge)}
+            ${payerThSort("Pending Withdrawal", "pendingWithdrawal", fnBadge)}
+            ${payerThSort("Withdrawable At", "withdrawableTimestamp", fnBadge)}
+          </tr></thead><tbody id="__payers-tbody"></tbody>
+        </table></div></div></div></div>`;
           } else if (
             payers !== undefined &&
             payers !== null &&
@@ -1751,8 +1869,27 @@
             chain: data.chain,
             explorer: explorer,
             feeDecimals: data.state.feeTokenDecimals,
+            sortKey: null,
+            sortDir: null,
+            filter: "",
           };
           window.__prRender();
+        }
+
+        // Wire up payers interactive table
+        if (data.state?.payers?.length > 0) {
+          const payerDecimals = data.state.feeTokenDecimals !== undefined && data.state.feeTokenDecimals !== null
+            ? parseInt(data.state.feeTokenDecimals)
+            : null;
+          window.__payersState = {
+            payers: data.state.payers,
+            explorer: explorer,
+            decimals: payerDecimals,
+            sortKey: null,
+            sortDir: null,
+            filter: "",
+          };
+          window.__payersRender();
         }
 
         // Kick off async parameter history load if applicable
