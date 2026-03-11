@@ -198,6 +198,21 @@
       .balance-link:hover {
         text-decoration: underline;
       }
+      .col-header-link-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .col-header-link {
+        opacity: 0;
+        font-size: 11px;
+        color: var(--accent);
+        text-decoration: none;
+        transition: opacity 0.15s;
+      }
+      th:hover .col-header-link {
+        opacity: 1;
+      }
 
       /* Addresses */
       .addr {
@@ -1976,6 +1991,10 @@
 
           const explorerUrl = meta?.meta?.[env]?.settlement?.explorer || "";
           const appExplorerUrl = meta?.meta?.[env]?.app?.explorer || "";
+          const underlyingToken = meta?.meta?.[env]?.settlement?.underlyingToken || "";
+          const xUsdL2Header = explorerUrl && underlyingToken
+            ? `<span class="col-header-link-wrap">xUSD (Base L2)<a href="${explorerUrl}/address/${underlyingToken}" target="_blank" rel="noopener" class="col-header-link" title="View ERC20 contract">↗</a></span>`
+            : `xUSD (Base L2)`;
 
           html += `<div class="detail-card">`;
           html += `<div class="detail-card-header">${escapeHtml(env)}</div>`;
@@ -1994,7 +2013,7 @@
               <th>Role</th>
               <th>Address</th>
               <th style="text-align:right">ETH (Base L2)</th>
-              <th style="text-align:right">xUSD (Base L2)</th>
+              <th style="text-align:right">${xUsdL2Header}</th>
               <th style="text-align:right">xUSD (App Chain L3)</th>
             </tr>
           </thead><tbody>`;

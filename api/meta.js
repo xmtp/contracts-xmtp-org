@@ -15,6 +15,7 @@ module.exports = function handler(req, res) {
           chainId: envFiles[env].settlementChainId,
           explorer: EXPLORERS[env].settlement,
           contracts: SETTLEMENT_CONTRACTS.map((c) => c.name),
+          underlyingToken: envFiles[env].underlyingFeeToken,
         },
         app: {
           chainId: envFiles[env].appChainId,
