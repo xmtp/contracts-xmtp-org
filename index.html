@@ -918,21 +918,22 @@
       // ---- State ----
       let meta = null;
 
-      // ---- URL hash state ----
+      // ---- URL routing state ----
       const VALID_TABS = new Set(["status", "inspector", "balances"]);
 
-      function updateHash(push) {
+      function updateURL(push) {
         const activeTab = document.querySelector(".tab.active");
         const tab = activeTab ? activeTab.dataset.tab : "status";
-        const params = new URLSearchParams();
-        params.set("tab", tab);
+        let url = "/" + tab;
         if (tab === "inspector") {
+          const params = new URLSearchParams();
           const env = document.getElementById("inspector-env").value;
           const contract = document.getElementById("inspector-contract").value;
           if (env) params.set("env", env);
           if (contract) params.set("contract", contract);
+          const qs = params.toString();
+          if (qs) url += "?" + qs;
         }
-        const url = "#" + params.toString();
         if (push) {
           history.pushState(null, "", url);
         } else {
@@ -940,13 +941,15 @@
         }
       }
 
-      function getHashParams() {
-        const hash = location.hash.slice(1);
-        return new URLSearchParams(hash);
+      function getRouteParams() {
+        const pathTab = location.pathname.replace(/^\//, "") || "status";
+        const params = new URLSearchParams(location.search);
+        params.set("tab", VALID_TABS.has(pathTab) ? pathTab : "status");
+        return params;
       }
 
       window.addEventListener("popstate", () => {
-        const params = getHashParams();
+        const params = getRouteParams();
         const tab = params.get("tab") || "status";
         switchToTab(VALID_TABS.has(tab) ? tab : "status");
         if (tab === "inspector") {
@@ -983,7 +986,7 @@
       document.querySelectorAll(".tab").forEach((tab) => {
         tab.addEventListener("click", () => {
           switchToTab(tab.dataset.tab);
-          updateHash(true);
+          updateURL(true);
         });
       });
 
@@ -1160,14 +1163,14 @@
         .addEventListener("change", function () {
           populateContractDropdown(this.value, true);
           autoLoadIfReady();
-          updateHash();
+          updateURL();
         });
 
       document
         .getElementById("inspector-contract")
         .addEventListener("change", function () {
           autoLoadIfReady();
-          updateHash();
+          updateURL();
         });
 
       async function loadContractDetails() {
@@ -1931,7 +1934,7 @@
         document.getElementById("inspector-contract").value =
           `${chain}:${name}`;
         loadContractDetails();
-        updateHash(true);
+        updateURL(true);
       }
 
       // ---- Balances ----
@@ -2115,10 +2118,15 @@
       */
 
       // ---- Init ----
+      // Silently redirect legacy hash-based URLs (e.g. /#tab=inspector) to home
+      if (location.hash.startsWith("#tab=")) {
+        history.replaceState(null, "", "/");
+      }
+
       // Populate selectors independently so inspector tab works
       // even if version loading is slow or fails
-      const hashParams = getHashParams();
-      const rawTab = hashParams.get("tab") || "status";
+      const routeParams = getRouteParams();
+      const rawTab = routeParams.get("tab") || "status";
       const initialTab = VALID_TABS.has(rawTab) ? rawTab : "status";
 
       fetch("/api/meta")
@@ -2127,10 +2135,10 @@
           meta = m;
           populateSelectors(m);
 
-          // Restore inspector selections from hash
+          // Restore inspector selections from URL
           if (initialTab === "inspector") {
-            const env = hashParams.get("env");
-            const contract = hashParams.get("contract");
+            const env = routeParams.get("env");
+            const contract = routeParams.get("contract");
             if (env) {
               document.getElementById("inspector-env").value = env;
               populateContractDropdown(env);
