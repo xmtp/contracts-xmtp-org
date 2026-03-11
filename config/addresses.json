@@ -12,6 +12,10 @@
     "payer": {
       "Performance Gateway Payer": "0x66B84B70CA5df3158CCb17A3863056b5aa0eA5c7",
       "XMTP Gateway Payer": "0x132455a4306D362d7D051B7c2f2c96d9021D6a1c"
+    },
+    "contract": {
+      "Payer Registry":       "0x77a9129Cb584DF076a64A995dDEF9158d589D80c",
+      "Distribution Manager": "0xe6dFd753AE0028FE85DEC586CF2d60BFF4C91B4F"
     }
   },
   "testnet-staging": {
@@ -27,6 +31,10 @@
     "payer": {
       "Performance Gateway Payer": "0x3B6ae08A3485c5cbBf9273fF9717c48037B870B6",
       "XMTP Gateway Payer": "0x132455a4306D362d7D051B7c2f2c96d9021D6a1c"
+    },
+    "contract": {
+      "Payer Registry":       "0x208E94fbC9833B58765fedC30CFF8539C6356e88",
+      "Distribution Manager": "0xB764BfB7b4869dcC03A60856a7Bf7a3eF359a67b"
     }
   },
   "testnet": {
@@ -42,6 +50,10 @@
     "payer": {
       "Performance Gateway Payer": "0x427B512414b9432C36F9912eF68BaD4b433a144a",
       "XMTP Gateway Payer": "0x132455a4306D362d7D051B7c2f2c96d9021D6a1c"
+    },
+    "contract": {
+      "Payer Registry":       "0xF0bd6Ac8AA00BA083cF95C5438B33488cbd2562B",
+      "Distribution Manager": "0xeA33A26E8992225Aad75fE55c3c6a0b508737F63"
     }
   },
   "mainnet": {
@@ -52,6 +64,10 @@
     "fireblocks": {
       "Admin (XMTP Governor)": "0x0bb1dE335cf9c23723ca22c1fdFa64e51C1BEd67",
       "Node Registry Admin":   "0xC3B4D9F4Bd0D308E672d01A826DA743bD806BCf5"
+    },
+    "contract": {
+      "Payer Registry":       "0xd1c78Dee5d58eCCF1cF1CAABbfc9837215f1B82B",
+      "Distribution Manager": "0xcc66BB4c08F3aB6DCa12F8F866bd6301c07849f7"
     }
   }
 }
