@@ -2018,8 +2018,8 @@
               <th>Role</th>
               <th>Address</th>
               <th style="text-align:right" title="Native Token">ETH (Base L2)</th>
-              <th class="wrap" style="text-align:right">${erc20Link(explorerUrl, underlyingToken, underlyingLabel)}</th>
               <th class="wrap" style="text-align:right">${erc20Link(explorerUrl, feeToken, "Fee Token xUSD (Base L2)")}</th>
+              <th class="wrap" style="text-align:right">${erc20Link(explorerUrl, underlyingToken, underlyingLabel)}</th>
               <th style="text-align:right" title="Native Token">xUSD (App Chain L3)</th>
             </tr>
           </thead><tbody>`;
@@ -2045,8 +2045,8 @@
                 <td class="contract-name">${escapeHtml(role)}</td>
                 <td>${renderAddress(info.address)}</td>
                 <td style="text-align:right">${wrapL2(formatEth(info.ethBalance))}</td>
-                <td style="text-align:right">${wrapL2(formatToken(info.underlyingBalance, info.underlyingDecimals))}</td>
                 <td style="text-align:right">${wrapL2(formatToken(info.l2FeeTokenBalance, info.l2FeeTokenDecimals))}</td>
+                <td style="text-align:right">${wrapL2(formatToken(info.underlyingBalance, info.underlyingDecimals))}</td>
                 <td style="text-align:right">${wrapL3(formatToken(info.appNativeBalance, info.appNativeDecimals))}</td>
               </tr>`;
             }
