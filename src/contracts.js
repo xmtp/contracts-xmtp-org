@@ -962,6 +962,7 @@ async function getAllBalances() {
     const settlementProvider = getProvider(env, "settlement");
     const appProvider = getProvider(env, "app");
     const underlyingToken = envFile.underlyingFeeToken;
+    const l2FeeToken = envFile.feeToken;
 
     const fetchBalances = (address, entry) => {
       promises.push(
@@ -971,20 +972,24 @@ async function getAllBalances() {
             .then((v) => v.toString())
             .catch(() => null),
           getErc20Balance(underlyingToken, address, settlementProvider),
+          getErc20Balance(l2FeeToken, address, settlementProvider),
           // xUSD is the native gas token on the app chain — use getBalance, not ERC20
           appProvider
             .getBalance(address)
             .then((v) => v.toString())
             .catch(() => null),
           getDecimals(underlyingToken, settlementProvider, `${env}:underlying`),
+          getDecimals(l2FeeToken, settlementProvider, `${env}:l2FeeToken`),
           // App chain native token uses 18 decimals
           Promise.resolve(18),
-        ]).then(([eth, underlying, feeToken, underlyingDec, feeTokenDec]) => {
+        ]).then(([eth, underlying, l2Fee, appNative, underlyingDec, l2FeeDec, appNativeDec]) => {
           entry.ethBalance = eth.value ?? null;
           entry.underlyingBalance = underlying.value ?? null;
           entry.underlyingDecimals = underlyingDec.value ?? 6;
-          entry.feeTokenBalance = feeToken.value ?? null;
-          entry.feeTokenDecimals = feeTokenDec.value ?? 18;
+          entry.l2FeeTokenBalance = l2Fee.value ?? null;
+          entry.l2FeeTokenDecimals = l2FeeDec.value ?? 18;
+          entry.appNativeBalance = appNative.value ?? null;
+          entry.appNativeDecimals = appNativeDec.value ?? 18;
         }),
       );
     };
