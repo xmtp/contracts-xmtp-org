@@ -14,8 +14,9 @@
       "XMTP Gateway Payer": "0x132455a4306D362d7D051B7c2f2c96d9021D6a1c"
     },
     "contract": {
-      "Payer Registry":       "0x77a9129Cb584DF076a64A995dDEF9158d589D80c",
-      "Distribution Manager": "0xe6dFd753AE0028FE85DEC586CF2d60BFF4C91B4F"
+      "Distribution Manager": "0xe6dFd753AE0028FE85DEC586CF2d60BFF4C91B4F",
+      "Fee Token xUSD":       "0x63C6667798fdA65E2E29228C43fbfDa0Cd4634A8",
+      "Payer Registry":       "0x77a9129Cb584DF076a64A995dDEF9158d589D80c"
     }
   },
   "testnet-staging": {
@@ -33,8 +34,9 @@
       "XMTP Gateway Payer": "0x132455a4306D362d7D051B7c2f2c96d9021D6a1c"
     },
     "contract": {
-      "Payer Registry":       "0x208E94fbC9833B58765fedC30CFF8539C6356e88",
-      "Distribution Manager": "0xB764BfB7b4869dcC03A60856a7Bf7a3eF359a67b"
+      "Distribution Manager": "0xB764BfB7b4869dcC03A60856a7Bf7a3eF359a67b",
+      "Fee Token xUSD":       "0x63C6667798fdA65E2E29228C43fbfDa0Cd4634A8",
+      "Payer Registry":       "0x208E94fbC9833B58765fedC30CFF8539C6356e88"
     }
   },
   "testnet": {
@@ -52,8 +54,9 @@
       "XMTP Gateway Payer": "0x132455a4306D362d7D051B7c2f2c96d9021D6a1c"
     },
     "contract": {
-      "Payer Registry":       "0xF0bd6Ac8AA00BA083cF95C5438B33488cbd2562B",
-      "Distribution Manager": "0xeA33A26E8992225Aad75fE55c3c6a0b508737F63"
+      "Distribution Manager": "0xeA33A26E8992225Aad75fE55c3c6a0b508737F63",
+      "Fee Token xUSD":       "0x63C6667798fdA65E2E29228C43fbfDa0Cd4634A8",
+      "Payer Registry":       "0xF0bd6Ac8AA00BA083cF95C5438B33488cbd2562B"
     }
   },
   "mainnet": {
@@ -66,8 +69,9 @@
       "Node Registry Admin":   "0xC3B4D9F4Bd0D308E672d01A826DA743bD806BCf5"
     },
     "contract": {
-      "Payer Registry":       "0xd1c78Dee5d58eCCF1cF1CAABbfc9837215f1B82B",
-      "Distribution Manager": "0xcc66BB4c08F3aB6DCa12F8F866bd6301c07849f7"
+      "Distribution Manager": "0xcc66BB4c08F3aB6DCa12F8F866bd6301c07849f7",
+      "Fee Token xUSD":       "0x63C6667798fdA65E2E29228C43fbfDa0Cd4634A8",
+      "Payer Registry":       "0xd1c78Dee5d58eCCF1cF1CAABbfc9837215f1B82B"
     }
   }
 }

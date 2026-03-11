@@ -2031,7 +2031,7 @@
           for (const signingType of orderedTypes) {
             const roles = envData[signingType];
             if (!roles) continue;
-            for (const [role, info] of Object.entries(roles)) {
+            for (const [role, info] of Object.entries(roles).sort(([a], [b]) => a.localeCompare(b))) {
               const wrapL2 = (html) =>
                 explorerUrl && info.address
                   ? `<a href="${explorerUrl}/address/${info.address}" target="_blank" rel="noopener" class="balance-link">${html}</a>`
