@@ -437,7 +437,7 @@
       /* Parameter History tile */
       .param-history-col-header {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 2fr 2fr 1fr;
         padding: 5px 18px;
         border-bottom: 1px solid var(--border);
         font-size: 10px;
@@ -449,7 +449,7 @@
       }
       .param-history-row {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 2fr 2fr 1fr;
         align-items: start;
         padding: 10px 18px;
         gap: 16px;
@@ -506,7 +506,7 @@
       .param-sort-toggle {
         display: flex;
         gap: 2px;
-        margin-left: auto;
+        margin-left: 16px;
         font-size: 11px;
         font-weight: 400;
         align-items: center;
@@ -741,7 +741,7 @@
         data,
         tileBodyEl,
         explorerUrl,
-        currentSort,
+        _currentSort,
         tileEl,
       ) {
         if (!data.keys || data.keys.length === 0) {
@@ -751,22 +751,40 @@
 
         const filterEl = tileEl ? tileEl.querySelector("#param-xmtp-only") : null;
         const xmtpOnly = filterEl ? filterEl.checked : true;
-        const keys = xmtpOnly
+        const xmtpFiltered = xmtpOnly
           ? data.keys.filter((e) => e.key.startsWith("xmtp."))
           : data.keys;
+
+        const searchEl = tileEl ? tileEl.querySelector("#param-search") : null;
+        const searchTerm = searchEl ? searchEl.value.trim().toLowerCase() : "";
+        const keys = searchTerm
+          ? xmtpFiltered.filter((e) => {
+              return (
+                e.key.toLowerCase().includes(searchTerm) ||
+                JSON.stringify(e.currentDecoded ?? "").toLowerCase().includes(searchTerm)
+              );
+            })
+          : xmtpFiltered;
 
         if (keys.length === 0) {
           tileBodyEl.innerHTML = `<div style="padding:14px 18px;color:var(--text-dim);font-size:13px">No matching parameters found.</div>`;
           return;
         }
 
+        const sortKey = tileEl?._paramHistorySortKey || "key";
+        const sortDir = tileEl?._paramHistorySortDir || "asc";
+
         const sorted = [...keys];
-        if (currentSort === "recent") {
-          sorted.sort(
-            (a, b) => (b.lastChangedBlock || 0) - (a.lastChangedBlock || 0),
-          );
+        if (sortKey === "recent") {
+          sorted.sort((a, b) => {
+            const diff = (a.lastChangedBlock || 0) - (b.lastChangedBlock || 0);
+            return sortDir === "asc" ? diff : -diff;
+          });
         } else {
-          sorted.sort((a, b) => a.key.localeCompare(b.key));
+          sorted.sort((a, b) => {
+            const cmp = a.key.localeCompare(b.key);
+            return sortDir === "asc" ? cmp : -cmp;
+          });
         }
 
         // Build the explorer tx base URL (strip /address/... suffix if present)
@@ -774,7 +792,14 @@
           ? explorerUrl.replace(/\/address\/[^/]*$/, "")
           : "";
 
-        let html = `<div class="param-history-col-header"><span>Key</span><span>Value</span></div>`;
+        const arrow = (col) => sortKey === col
+          ? `<span style="color:var(--text-dim);font-size:10px">${sortDir === "asc" ? "▲" : "▼"}</span>`
+          : "";
+        let html = `<div class="param-history-col-header">
+          <span style="cursor:pointer;user-select:none" onclick="toggleParamSort(this.closest('#param-history-tile'),'key')" title="Sort by key">Key ${arrow("key")}</span>
+          <span>Value</span>
+          <span style="cursor:pointer;user-select:none" onclick="toggleParamSort(this.closest('#param-history-tile'),'recent')" title="Sort by last changed">Changed ${arrow("recent")}</span>
+        </div>`;
         for (const entry of sorted) {
           const lastDate = formatParamTimestamp(entry.lastChangedTimestamp);
 
@@ -784,11 +809,13 @@
             history[0]?.txHash && txBase
               ? `<a href="${escapeHtml(txBase)}/tx/${escapeHtml(history[0].txHash)}" target="_blank" rel="noopener" class="param-history-link" title="View transaction">&#8599;</a>`
               : "";
-          const dateHtml = lastDate
-            ? `<span class="param-history-meta">${lastDate}</span>`
+          const currentBlockStr = history[0]?.block ? `block ${history[0].block}` : "";
+          const currentChangedMeta = currentBlockStr || lastDate
+            ? `<span class="param-history-meta">${currentBlockStr}${currentBlockStr && lastDate ? " · " : ""}${lastDate || ""}</span>`
             : "";
 
-          let valHtml = `<div class="param-history-current">${formatParamValue(entry.currentDecoded)}${dateHtml}${currentTxLink}</div>`;
+          let valHtml = `<div class="param-history-current">${formatParamValue(entry.currentDecoded)}</div>`;
+          let changedHtml = `<div class="param-history-current">${currentChangedMeta}${currentTxLink}</div>`;
 
           // Prior values (skip index 0)
           for (let i = 1; i < history.length; i++) {
@@ -799,50 +826,46 @@
                 : "";
             const hDate = formatParamTimestamp(h.timestamp);
             const blockStr = `block ${h.block}`;
-            valHtml += `<div class="param-history-prior">${formatParamValue(h.decoded)}<span class="param-history-meta">${escapeHtml(blockStr)}${hDate ? " · " + hDate : ""}</span>${txLink}</div>`;
+            valHtml += `<div class="param-history-prior">${formatParamValue(h.decoded)}</div>`;
+            changedHtml += `<div class="param-history-prior"><span class="param-history-meta">${escapeHtml(blockStr)}${hDate ? " · " + hDate : ""}</span>${txLink}</div>`;
           }
 
           html += `<div class="param-history-row">
             <div class="param-history-key-col">${escapeHtml(entry.key)}</div>
             <div class="param-history-val-col">${valHtml}</div>
+            <div class="param-history-val-col">${changedHtml}</div>
           </div>`;
         }
 
         tileBodyEl.innerHTML = html;
       }
 
-      function sortParameterHistory(tileEl, mode) {
-        // Update button states
-        tileEl.querySelectorAll(".param-sort-btn").forEach((btn) => {
-          btn.classList.toggle("active", btn.dataset.sort === mode);
-        });
-        // Re-render body using cached data
-        const cachedData = tileEl._paramHistoryData;
-        const explorerUrl = tileEl._paramHistoryExplorerUrl;
-        if (cachedData) {
-          renderParameterHistoryContent(
-            cachedData,
-            tileEl.querySelector(".detail-card-body"),
-            explorerUrl,
-            mode,
-            tileEl,
-          );
-        }
-      }
-
-      function toggleXmtpFilter(tileEl) {
+      function reRenderParamHistory(tileEl) {
         const cachedData = tileEl._paramHistoryData;
         const explorerUrl = tileEl._paramHistoryExplorerUrl;
         if (!cachedData) return;
-        const currentSort =
-          tileEl.querySelector(".param-sort-btn.active")?.dataset.sort || "alpha";
         renderParameterHistoryContent(
           cachedData,
           tileEl.querySelector(".detail-card-body"),
           explorerUrl,
-          currentSort,
+          null,
           tileEl,
         );
+      }
+
+      function filterParameterHistory(tileEl) { reRenderParamHistory(tileEl); }
+      function toggleXmtpFilter(tileEl) { reRenderParamHistory(tileEl); }
+
+      function toggleParamSort(tileEl, col) {
+        const currentKey = tileEl._paramHistorySortKey || "key";
+        const currentDir = tileEl._paramHistorySortDir || "asc";
+        if (currentKey === col) {
+          tileEl._paramHistorySortDir = currentDir === "asc" ? "desc" : "asc";
+        } else {
+          tileEl._paramHistorySortKey = col;
+          tileEl._paramHistorySortDir = col === "recent" ? "desc" : "asc";
+        }
+        reRenderParamHistory(tileEl);
       }
 
       async function loadParameterHistory(data, container) {
@@ -883,7 +906,7 @@
             result,
             bodyEl,
             tileEl._paramHistoryExplorerUrl,
-            "alpha",
+            null,
             tileEl,
           );
         } catch (err) {
@@ -1635,7 +1658,8 @@
                 const rendered = isAddr
                   ? renderAddress(val, explorer)
                   : formatBigValue(val);
-                html += `<div class="detail-row"><div class="detail-key">${escapeHtml(key)}</div><div class="detail-val">${rendered}</div></div>`;
+                const note = key === "protocolFeeRate" ? `<span style="font-size:11px;color:var(--text-dim);margin-left:10px">basis points (bps) — 10,000 = 100%</span>` : "";
+                html += `<div class="detail-row"><div class="detail-key">${escapeHtml(key)}</div><div class="detail-val">${rendered}${note}</div></div>`;
               }
             }
 
@@ -1867,13 +1891,12 @@
         Parameter History
         <span class="param-history-count" style="color:var(--text-dim);font-weight:400;font-size:12px;margin-left:6px"></span>
         <div class="param-sort-toggle">
-          <button class="param-sort-btn active" data-sort="alpha" onclick="sortParameterHistory(this.closest('#param-history-tile'),'alpha')">Key A→Z</button>
-          <button class="param-sort-btn" data-sort="recent" onclick="sortParameterHistory(this.closest('#param-history-tile'),'recent')">Recently Changed</button>
           <label class="param-xmtp-filter" title="Show only xmtp.* parameters">
             <input type="checkbox" id="param-xmtp-only" checked onchange="toggleXmtpFilter(this.closest('#param-history-tile'))">
             XMTP Only
           </label>
         </div>
+        <input id="param-search" type="text" placeholder="Search parameters…" oninput="filterParameterHistory(this.closest('#param-history-tile'))" style="margin-left:auto;padding:4px 10px;background:var(--card-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;font-family:var(--mono);width:200px">
       </div>
       <div class="detail-card-body">
         <div class="loading" style="padding:20px 18px"><div class="spinner"></div>Loading parameter history…</div>
