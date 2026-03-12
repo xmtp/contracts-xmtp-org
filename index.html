@@ -1317,13 +1317,14 @@
           rows += `<tr>
             <td style="font-family:var(--mono);font-size:13px">${escapeHtml(r.originatorNodeId)}</td>
             <td style="font-family:var(--mono);font-size:13px">${escapeHtml(r.reportIndex)}</td>
-            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(fmtInt(r.startSequenceId))}</td>
-            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(fmtInt(r.endSequenceId))}</td>
-            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(fmtInt(BigInt(r.endSequenceId) - BigInt(r.startSequenceId)))}</td>
+            <td style="font-family:var(--mono);font-size:12px;text-align:right">${escapeHtml(fmtInt(r.startSequenceId))}</td>
+            <td style="font-family:var(--mono);font-size:12px;text-align:right">${escapeHtml(fmtInt(r.endSequenceId))}</td>
+            <td style="font-family:var(--mono);font-size:12px;text-align:right">${escapeHtml(fmtInt(BigInt(r.endSequenceId) - BigInt(r.startSequenceId)))}</td>
             <td style="font-size:12px">${endTime}</td>
             <td style="font-size:12px">${submitCell}</td>
             <td style="font-size:12px">${settleCell}</td>
-            <td style="font-family:var(--mono);font-size:12px">${escapeHtml(formatTokenAmount(r.feesSettled, feeDecimals) ?? r.feesSettled ?? "0")}</td>
+            <td style="font-family:var(--mono);font-size:12px;text-align:right">${escapeHtml((() => { try { const full = formatTokenAmount(r.feesSettled, feeDecimals) ?? r.feesSettled ?? "0"; const parts = full.split("."); return parts[0] + "." + (parts[1] || "").padEnd(6, "0").slice(0, 6); } catch { return r.feesSettled ?? "0"; } })())}</td>
+            <td style="font-family:var(--mono);font-size:12px;text-align:right">${(() => { try { const mc = BigInt(r.endSequenceId || "0") - BigInt(r.startSequenceId || "0"); if (mc <= 0n) return "-"; const scaled = BigInt(r.feesSettled || "0") * 100000n / mc; const full = formatTokenAmount(scaled.toString(), feeDecimals); if (!full) return "-"; const parts = full.split("."); return escapeHtml(parts[0] + "." + (parts[1] || "").padEnd(2, "0").slice(0, 2)); } catch { return "-"; } })()}</td>
             <td style="font-family:var(--mono);font-size:11px">${renderAddress(r.submitter, explorer, true)}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml((r.nodeIds || []).join(", ") || "-")}</td>
             <td style="font-family:var(--mono);font-size:12px">${escapeHtml((r.signingNodeIds || []).join(", ") || "-")}</td>
@@ -1724,6 +1725,7 @@
               ${thSort("Submitted", "submitTimestamp", "When this report was submitted on chain")}
               ${thSort("Settled", "settleTimestamp", "When all payer fees were fully collected, or No if still pending")}
               ${thSort("Fees Settled (xUSD)", "feesSettled", "Total xUSD deducted from payer prepaid balances for messages in this range, now claimable by nodes")}
+              <th>COST xUSD per 100K<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Calculated Message Cost in xUSD per 100k Messages</div></th>
               <th>Submitter<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Address that called submit(). Anyone can relay</div></th>
               <th>Node IDs<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Canonical nodes at submission time. Share the fees</div></th>
               <th>Signing Node IDs<div style="font-weight:400;font-size:10px;color:var(--text-dim);padding-top:2px;white-space:normal;line-height:1.3;text-transform:none;letter-spacing:0">Nodes that signed to attest this report (majority required)</div></th>
