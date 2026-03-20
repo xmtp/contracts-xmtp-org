@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+info() {
+    echo -e "${BLUE}==>${NC} $*"
+}
+
+success() {
+    echo -e "${GREEN}✓${NC} $*"
+}
+
+warning() {
+    echo -e "${YELLOW}!${NC} $*"
+}
+
+error() {
+    echo -e "${RED}✗${NC} $*" >&2
+}
+
+# Show help
+show_help() {
+    cat <<EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Update environments addresses from xmtp/smart-contracts repository.
+
+Environment Variables:
+    UPDATE_BRANCH  Branch to use from xmtp/smart-contracts (default: main)
+
+Examples:
+    $(basename "$0")                              # Update with default settings
+    UPDATE_BRANCH=dev $(basename "$0")         # Use dev branch
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        *)
+            error "Unknown option: $1"
+            show_help
+            exit 1
+            ;;
+    esac
+done
+
+UPDATE_BRANCH="${UPDATE_BRANCH:-main}"
+
+# Start timing
+START_TIME=$(date +%s)
+
+info "Updating environments addresses from branch: ${UPDATE_BRANCH}"
+
+# Work always from the root directory
+script_dir=$(dirname "$(realpath "$0")")
+repo_root=$(realpath "${script_dir}/../")
+cd "${repo_root}" || exit 1
+
+info "Working directory: ${repo_root}"
+
+if [[ ! -d "config/environments" ]]; then
+    error "config/environments directory is missing"
+    exit 1
+fi
+
+if [[ ! -d "config/params" ]]; then
+    error "config/params directory is missing"
+    exit 1
+fi
+
+if ! command -v python3 >/dev/null 2>&1; then
+    error "python3 is required to validate JSON"
+    exit 1
+fi
+
+TMP_DIR=$(mktemp -d)
+trap 'rm -rf "${TMP_DIR}"' EXIT
+
+update_json_file() {
+    local remote_path="$1"
+    local local_path="$2"
+    local url="https://raw.githubusercontent.com/xmtp/smart-contracts/refs/heads/${UPDATE_BRANCH}/${remote_path}"
+    local content
+    local tmp_file
+
+    if ! content=$(curl -fsSL "${url}"); then
+        error "Failed to fetch ${url}"
+        return 1
+    fi
+
+    if ! printf '%s' "${content}" | python3 -c 'import json, sys; json.load(sys.stdin)'; then
+        error "Fetched content is not valid JSON: ${url}"
+        return 1
+    fi
+
+    tmp_file="${TMP_DIR}/$(basename "${local_path}").tmp"
+    printf '%s\n' "${content}" > "${tmp_file}"
+
+    if ! cmp -s "${local_path}" "${tmp_file}"; then
+        mv "${tmp_file}" "${local_path}"
+        success "Updated ${local_path}"
+    else
+        info "No changes for ${local_path}"
+    fi
+}
+
+# Environments.
+update_json_file "environments/testnet-staging.json" "config/environments/testnet-staging.json"
+update_json_file "environments/testnet-dev.json" "config/environments/testnet-dev.json"
+update_json_file "environments/testnet.json" "config/environments/testnet.json"
+update_json_file "environments/mainnet.json" "config/environments/mainnet.json"
+
+# Parameters.
+update_json_file "config/testnet-staging.json" "config/params/testnet-staging.json"
+update_json_file "config/testnet-dev.json" "config/params/testnet-dev.json"
+update_json_file "config/testnet.json" "config/params/testnet.json"
+update_json_file "config/mainnet.json" "config/params/mainnet.json"
+
+# Calculate duration
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
+
+echo ""
+success "✨ Environments addresses updated successfully in ${DURATION}s"
+echo ""
